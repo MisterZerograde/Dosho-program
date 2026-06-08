@@ -25,6 +25,24 @@ jobs:
       - name: Generate icons
         run: npm run create-icons
 
+      - name: Prepare MT5 bridge
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          New-Item -ItemType Directory -Force mt5_bridge/dist | Out-Null
+          $found = $false
+          try {
+            gh release download latest --pattern mt5_bridge.exe --dir mt5_bridge/dist
+            $found = Test-Path "mt5_bridge/dist/mt5_bridge.exe"
+          } catch {}
+          if (-not $found) {
+            Write-Host "No bridge release found — building without bundled bridge"
+            $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+            $pkg.build.PSObject.Properties.Remove('extraResources')
+            $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json -Encoding utf8
+          }
+
       - name: Build & publish installer
         run: npm run build -- --publish always
         env:
