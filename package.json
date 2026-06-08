@@ -1,6 +1,6 @@
 {
   "name": "dosho",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Dosho Trading Journal",
   "main": "electron/main.js",
   "scripts": {
@@ -43,7 +43,9 @@
       "oneClick": true,
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
-      "shortcutName": "Dosho"
+      "shortcutName": "Dosho",
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true
     },
     "publish": {
       "provider": "github",
