@@ -48,7 +48,7 @@
     "publish": {
       "provider": "github",
       "owner": "MisterZerograde",
-      "repo": "Dosho-app"
+      "repo": "Dosho-program"
     }
   }
 }
