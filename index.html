@@ -956,9 +956,25 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
         <div class="card" style="margin-top:14px">
           <div class="card-hd"><span class="card-title">MT5 Bridge</span></div>
           <div class="card-bd">
-            <div id="bridge-status-row" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;border-radius:10px;background:var(--bg2);font-size:13px">
+            <div id="bridge-status-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px 14px;border-radius:10px;background:var(--bg2);font-size:13px">
               <span id="bridge-set-dot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;flex-shrink:0;transition:background .3s"></span>
               <span id="bridge-set-info" style="color:var(--text2)">กำลังตรวจสอบ...</span>
+            </div>
+            <div id="mt5-overview-card" style="display:none;background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)">Account Overview</span>
+                <span id="ov-trade-mode" style="font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600"></span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px">
+                <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Name</div><div id="ov-name" style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div></div>
+                <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Leverage</div><div id="ov-leverage" style="font-size:12px;font-weight:500;color:var(--text)">—</div></div>
+                <div style="grid-column:1/-1"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Company</div><div id="ov-company" style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div></div>
+                <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Equity</div><div id="ov-equity" style="font-size:12px;font-weight:500;color:var(--text)">—</div></div>
+                <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Floating P&amp;L</div><div id="ov-profit" style="font-size:12px;font-weight:500">—</div></div>
+                <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Margin</div><div id="ov-margin" style="font-size:12px;font-weight:500;color:var(--text)">—</div></div>
+                <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Free Margin</div><div id="ov-margin-free" style="font-size:12px;font-weight:500;color:var(--text)">—</div></div>
+                <div style="grid-column:1/-1"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Margin Level</div><div id="ov-margin-level" style="font-size:12px;font-weight:500;color:var(--text)">—</div></div>
+              </div>
             </div>
             <div class="form-group" style="margin-bottom:14px">
               <label class="form-label">ช่วงเวลาดึงข้อมูล</label>
@@ -3058,6 +3074,7 @@ function _updateBridgeSettings(d) {
   if (!dot) return;
   const online = d && d.bridge === 'ok';
   dot.style.background = online ? (d.connected ? '#22c55e' : '#f59e0b') : '#6b7280';
+  const ovCard = document.getElementById('mt5-overview-card');
   if (online) {
     const bal  = d.balance != null ? `  ${Number(d.balance).toLocaleString()} ${d.currency || ''}` : '';
     const sync = d.lastSync ? `  •  ซิงค์ล่าสุด ${d.lastSync.time} (${d.lastSync.count} รายการ)` : '';
@@ -3083,6 +3100,33 @@ function _updateBridgeSettings(d) {
       _bridgeNextSyncAt = null;
       _bridgeLastSyncTime = null;
     }
+    if (ovCard && d.connected) {
+      ovCard.style.display = '';
+      const cur = d.currency || '';
+      const fmtMoney = v => v != null ? Number(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ' + cur : '—';
+      const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      const modeEl = document.getElementById('ov-trade-mode');
+      if (modeEl) {
+        modeEl.textContent = d.trade_mode || '';
+        const isDemo = d.trade_mode === 'Demo';
+        modeEl.style.cssText = `font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;background:${isDemo ? 'rgba(245,158,11,.15)' : 'rgba(34,197,94,.15)'};color:${isDemo ? 'var(--yellow)' : 'var(--green)'}`;
+      }
+      setEl('ov-name',        d.name    || '—');
+      setEl('ov-company',     d.company || '—');
+      setEl('ov-leverage',    d.leverage ? `1:${d.leverage}` : '—');
+      setEl('ov-equity',      fmtMoney(d.equity));
+      setEl('ov-margin',      fmtMoney(d.margin));
+      setEl('ov-margin-free', fmtMoney(d.margin_free));
+      setEl('ov-margin-level', d.margin_level != null ? d.margin_level.toFixed(2) + '%' : 'N/A');
+      const profitEl = document.getElementById('ov-profit');
+      if (profitEl) {
+        const p = d.profit;
+        profitEl.textContent = p != null ? (p >= 0 ? '+' : '') + fmtMoney(p) : '—';
+        profitEl.style.color = p > 0 ? 'var(--green)' : p < 0 ? 'var(--red)' : 'var(--text)';
+      }
+    } else if (ovCard) {
+      ovCard.style.display = 'none';
+    }
   } else {
     if (window.__ELECTRON__) {
       info.textContent = 'Bridge กำลังเริ่มต้น — รอสักครู่...';
@@ -3094,6 +3138,7 @@ function _updateBridgeSettings(d) {
     [perEl, intEl, stEl].forEach(el => { if (el) el.disabled = true; });
     _bridgeNextSyncAt = null;
     _bridgeIntervalSecs = 0;
+    if (ovCard) ovCard.style.display = 'none';
   }
 }
 

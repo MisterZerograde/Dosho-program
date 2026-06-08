@@ -42,7 +42,13 @@ _win_ref     = None
 
 _config = {"period_days": 30, "interval_secs": 0}
 _cache  = {"trades": [], "synced_at": None, "count": 0}
-_status = {"connected": False, "login": None, "server": None, "balance": None, "currency": None}
+_status = {
+    "connected": False, "login": None, "server": None,
+    "name": None, "company": None, "trade_mode": None, "leverage": None,
+    "balance": None, "equity": None, "profit": None,
+    "margin": None, "margin_free": None, "margin_level": None,
+    "currency": None,
+}
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -124,13 +130,23 @@ def _fetch_and_cache():
         finally:
             mt5.shutdown()
 
+    TRADE_MODES = {0: "Demo", 1: "Contest", 2: "Real"}
     if info:
         _status = {
-            "connected": True,
-            "login":     info.login,
-            "server":    info.server,
-            "balance":   round(info.balance, 2),
-            "currency":  info.currency,
+            "connected":    True,
+            "login":        info.login,
+            "server":       info.server,
+            "name":         info.name,
+            "company":      info.company,
+            "trade_mode":   TRADE_MODES.get(info.trade_mode, "Unknown"),
+            "leverage":     info.leverage,
+            "balance":      round(info.balance, 2),
+            "equity":       round(info.equity, 2),
+            "profit":       round(info.profit, 2),
+            "margin":       round(info.margin, 2),
+            "margin_free":  round(info.margin_free, 2),
+            "margin_level": round(info.margin_level, 2) if info.margin_level else None,
+            "currency":     info.currency,
         }
     trades = _deals_to_trades(deals) if deals is not None else []
 
