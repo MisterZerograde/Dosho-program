@@ -157,7 +157,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
     },
   });
-  win.loadFile(path.join(__dirname, '..', 'index.html'));
+  win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   win.webContents.on('context-menu', e => e.preventDefault());
   win.webContents.setVisualZoomLevelLimits(1, 1);
   win.webContents.on('before-input-event', (event, input) => {
