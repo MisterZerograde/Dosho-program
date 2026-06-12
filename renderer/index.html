@@ -3986,8 +3986,10 @@ function _drawShareCardWide(canvas, ts, s) {
   ctx.beginPath(); ctx.moveTo(403,238); ctx.lineTo(403,508); ctx.stroke();
   _drawShareHeatmap(ctx,_buildShareHeatmap(ts),24,260,372,246,C);
   _drawShareSparkline(ctx,ts,414,260,358,246,C);
-  ctx.font='400 10px Mitr,sans-serif'; ctx.textAlign='center'; ctx.fillStyle=C.footer;
-  ctx.fillText('dosho.app',W/2,H-14);
+  ctx.font='400 10px Mitr,sans-serif'; ctx.fillStyle=C.footer;
+  const _wn=settings.name||'';
+  if(_wn){ctx.textAlign='left';ctx.fillText('@'+_wn,32,H-14);ctx.textAlign='right';ctx.fillText('dosho.app',W-32,H-14);}
+  else{ctx.textAlign='center';ctx.fillText('dosho.app',W/2,H-14);}
 }
 
 function _drawShareCardTall(canvas, ts, s) {
@@ -4010,8 +4012,10 @@ function _drawShareCardTall(canvas, ts, s) {
   ctx.font='400 10px Mitr,sans-serif'; ctx.fillStyle=C.text3;
   ctx.textAlign='left'; ctx.fillText('Equity Curve',32,506);
   _drawShareSparkline(ctx,ts,24,514,W-48,400,C);
-  ctx.font='400 10px Mitr,sans-serif'; ctx.textAlign='center'; ctx.fillStyle=C.footer;
-  ctx.fillText('dosho.app',W/2,H-14);
+  ctx.font='400 10px Mitr,sans-serif'; ctx.fillStyle=C.footer;
+  const _tn=settings.name||'';
+  if(_tn){ctx.textAlign='left';ctx.fillText('@'+_tn,32,H-14);ctx.textAlign='right';ctx.fillText('dosho.app',W-32,H-14);}
+  else{ctx.textAlign='center';ctx.fillText('dosho.app',W/2,H-14);}
 }
 
 function _drawShareHeatmap(ctx, days, x, y, w, h, C) {
