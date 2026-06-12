@@ -77,9 +77,11 @@ async function startBridge() {
 }
 
 function stopBridge() {
-  if (!bridgeProc?.pid) return;
-  treeKill(bridgeProc.pid, 'SIGTERM', err => { if (err && bridgeProc) bridgeProc.kill(); });
-  bridgeProc = null;
+  if (bridgeProc?.pid) {
+    treeKill(bridgeProc.pid, 'SIGTERM', err => { if (err && bridgeProc) bridgeProc.kill(); });
+    bridgeProc = null;
+  }
+  try { require('child_process').execSync('taskkill /F /IM mt5_bridge.exe /T', { stdio: 'ignore' }); } catch {}
 }
 
 // ── Tray menu ─────────────────────────────────────────────────────────────────
