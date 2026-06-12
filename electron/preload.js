@@ -6,4 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: opts      => ipcRenderer.invoke('dialog:saveFile', opts),
   readBinary: p       => ipcRenderer.invoke('fs:readBinary', p),
   writeText: (p, t)   => ipcRenderer.invoke('fs:writeText', p, t),
+  checkForUpdate:  () => ipcRenderer.invoke('updater:check'),
+  installUpdate:   () => ipcRenderer.invoke('updater:install'),
+  onUpdateStatus:  cb => ipcRenderer.on('updater', (_e, data) => cb(data)),
 });

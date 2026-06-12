@@ -1043,6 +1043,24 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
             </div>
           </div>
         </div>
+        <div class="card" style="margin-top:14px">
+          <div class="card-hd"><span class="card-title">อัปเดตแอป</span></div>
+          <div class="card-bd">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div>
+                <div id="update-status-text" style="font-size:13px;color:var(--text2)">เวอร์ชัน 1.0.9</div>
+                <div id="update-sub-text" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
+              </div>
+              <div style="display:flex;gap:8px;flex-shrink:0">
+                <button id="update-check-btn" class="btn btn-ghost" style="font-size:12px;padding:6px 14px" onclick="triggerCheckUpdate()">ตรวจสอบอัปเดต</button>
+                <button id="update-install-btn" class="btn btn-primary" style="font-size:12px;padding:6px 14px;display:none" onclick="triggerInstallUpdate()">ติดตั้งเดี๋ยวนี้</button>
+              </div>
+            </div>
+            <div id="update-progress-bar" style="display:none;margin-top:10px;height:4px;border-radius:2px;background:var(--border2);overflow:hidden">
+              <div id="update-progress-fill" style="height:100%;width:0%;background:var(--purple);transition:width .3s;border-radius:2px"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -3645,6 +3663,40 @@ document.addEventListener('visibilitychange', () => {
     renderDashboard(); renderCalendar(); renderTradeTable(); renderReports();
   }
 });
+
+/* ═══ UPDATER ═══ */
+function _setUpdateUI(text, sub, showInstall, showProgress) {
+  const t = document.getElementById('update-status-text');
+  const s = document.getElementById('update-sub-text');
+  const b = document.getElementById('update-check-btn');
+  const i = document.getElementById('update-install-btn');
+  const p = document.getElementById('update-progress-bar');
+  if (t) t.textContent = text;
+  if (s) s.textContent = sub || '';
+  if (i) i.style.display = showInstall ? '' : 'none';
+  if (b) b.style.display = showInstall ? 'none' : '';
+  if (p) p.style.display = showProgress ? '' : 'none';
+}
+function triggerCheckUpdate() {
+  if (!window.electronAPI?.checkForUpdate) return;
+  _setUpdateUI('กำลังตรวจสอบ...', '', false, false);
+  window.electronAPI.checkForUpdate();
+}
+function triggerInstallUpdate() {
+  if (!window.electronAPI?.installUpdate) return;
+  _setUpdateUI('กำลังติดตั้ง...', 'แอปจะรีสตาร์ท', false, false);
+  window.electronAPI.installUpdate();
+}
+if (window.electronAPI?.onUpdateStatus) {
+  window.electronAPI.onUpdateStatus(({ type, version, percent, msg }) => {
+    if (type === 'checking')       _setUpdateUI('กำลังตรวจสอบอัปเดต...', '', false, false);
+    if (type === 'not-available')  _setUpdateUI('คุณใช้เวอร์ชันล่าสุดแล้ว', '', false, false);
+    if (type === 'available')      _setUpdateUI('พบอัปเดต v' + version, 'กำลังดาวน์โหลด...', false, true);
+    if (type === 'progress')       { _setUpdateUI('กำลังดาวน์โหลด ' + percent + '%', '', false, true); document.getElementById('update-progress-fill').style.width = percent + '%'; }
+    if (type === 'downloaded')     _setUpdateUI('ดาวน์โหลดแล้ว v' + version, 'พร้อมติดตั้ง', true, false);
+    if (type === 'error')          _setUpdateUI('เกิดข้อผิดพลาด', msg, false, false);
+  });
+}
 
 /* ═══ SHARE MODAL ═══ */
 let shareState = { mode: 'month', year: 0, month: 0, days: 0 };

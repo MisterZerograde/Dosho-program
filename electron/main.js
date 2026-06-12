@@ -255,6 +255,18 @@ app.whenReady().then(async () => {
   if (app.isPackaged) {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
+
+    const sendUpdate = (type, data) => { if (win) win.webContents.send('updater', { type, ...data }); };
+    autoUpdater.on('checking-for-update',  ()    => sendUpdate('checking', {}));
+    autoUpdater.on('update-available',     (i)   => sendUpdate('available', { version: i.version }));
+    autoUpdater.on('update-not-available', ()    => sendUpdate('not-available', {}));
+    autoUpdater.on('download-progress',    (p)   => sendUpdate('progress', { percent: Math.floor(p.percent) }));
+    autoUpdater.on('update-downloaded',    (i)   => sendUpdate('downloaded', { version: i.version }));
+    autoUpdater.on('error',                (e)   => sendUpdate('error', { msg: e.message }));
+
+    ipcMain.handle('updater:check',   () => autoUpdater.checkForUpdates());
+    ipcMain.handle('updater:install', () => { isQuitting = true; autoUpdater.quitAndInstall(); });
+
     autoUpdater.checkForUpdates();
   }
 });
