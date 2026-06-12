@@ -1053,7 +1053,7 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
           <div class="card-bd">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
               <div>
-                <div id="update-status-text" style="font-size:13px;color:var(--text2)">เวอร์ชัน 1.0.9</div>
+                <div id="update-status-text" style="font-size:13px;color:var(--text2)">กำลังโหลด...</div>
                 <div id="update-sub-text" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
               </div>
               <div style="display:flex;gap:8px;flex-shrink:0">
@@ -3682,13 +3682,19 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ═══ UPDATER ═══ */
+if (window.electronAPI?.getVersion) {
+  window.electronAPI.getVersion().then(v => {
+    const el = document.getElementById('update-status-text');
+    if (el && !el.dataset.changed) el.textContent = 'เวอร์ชัน ' + v;
+  });
+}
 function _setUpdateUI(text, sub, showInstall, showProgress) {
   const t = document.getElementById('update-status-text');
   const s = document.getElementById('update-sub-text');
   const b = document.getElementById('update-check-btn');
   const i = document.getElementById('update-install-btn');
   const p = document.getElementById('update-progress-bar');
-  if (t) t.textContent = text;
+  if (t) { t.textContent = text; t.dataset.changed = '1'; }
   if (s) s.textContent = sub || '';
   if (i) i.style.display = showInstall ? '' : 'none';
   if (b) b.style.display = showInstall ? 'none' : '';

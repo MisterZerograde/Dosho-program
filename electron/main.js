@@ -238,6 +238,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('dialog:saveFile', (_, opts) => dialog.showSaveDialog(win, opts));
   ipcMain.handle('fs:readBinary',   (_, p)       => fs.readFileSync(p));
   ipcMain.handle('fs:writeText',    (_, p, t)    => fs.writeFileSync(p, t, 'utf-8'));
+  ipcMain.handle('app:version',     ()           => app.getVersion());
 
   await startBridge();
 
