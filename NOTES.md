@@ -101,6 +101,10 @@ No modules, no bundler, no transpilation.
 - Removed: `Tray`, `Menu`, `nativeImage`, `treeKill`, `spawn` from main.js
 - Added: `bridge:sync` IPC + `syncBridge` in preload for future manual sync button
 
+### v1.1.7 — (broken release — missing latest.yml, skip)
+- CI uploaded .exe + .blockmap but not latest.yml — updater cannot find this version
+- Bumped straight to v1.1.8 to fix the update chain
+
 ### v1.1.6 — In-app update notification
 - Orange dot on "การตั้งค่า" nav item when update starts downloading
 - Green dot when download is complete (persists until restart)
