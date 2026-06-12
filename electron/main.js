@@ -250,7 +250,11 @@ app.whenReady().then(async () => {
   setTimeout(pollStatus, 2500);
   setInterval(pollStatus, POLL_MS);
 
-  if (app.isPackaged) autoUpdater.checkForUpdatesAndNotify();
+  if (app.isPackaged) {
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.checkForUpdates();
+  }
 });
 
 app.on('before-quit', () => { isQuitting = true; stopBridge(); });
