@@ -57,6 +57,10 @@ function createWindow() {
   win.webContents.on('context-menu', e => e.preventDefault());
   win.webContents.setVisualZoomLevelLimits(1, 1);
   win.webContents.on('before-input-event', (event, input) => {
+    if (!app.isPackaged) {
+      if (input.key === 'F12') { win.webContents.openDevTools(); return; }
+      if ((input.control || input.meta) && input.shift && input.key.toLowerCase() === 'i') { win.webContents.openDevTools(); return; }
+    }
     if (app.isPackaged) {
       if (input.key === 'F5') { event.preventDefault(); return; }
       if ((input.control || input.meta) && input.key.toLowerCase() === 'r') { event.preventDefault(); return; }
