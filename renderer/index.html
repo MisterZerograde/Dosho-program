@@ -509,6 +509,8 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
 .share-period-pill{padding:4px 11px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border2);background:transparent;color:var(--text2);transition:background .15s,color .15s,border-color .15s;font-family:inherit}
 .share-period-pill:hover{background:var(--surface2);color:var(--text)}
 .share-period-pill.active{background:var(--purple);color:#fff;border-color:var(--purple)}
+.share-date-input{padding:4px 8px;border-radius:6px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit;cursor:pointer;outline:none}
+.share-date-input:focus{border-color:var(--purple)}
 </style>
 </head>
 <body>
@@ -1103,18 +1105,21 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
       <button class="modal-close" onclick="closeShareModal()">✕</button>
     </div>
     <div class="modal-bd" style="padding:16px 20px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-        <button class="cal-arr" onclick="shareNavMonth(-1)">&#8249;</button>
-        <span id="share-mon-lbl" style="font-size:13px;font-weight:600;min-width:130px;text-align:center"></span>
-        <button class="cal-arr" onclick="shareNavMonth(1)">&#8250;</button>
-        <div style="width:1px;height:20px;background:var(--border2);margin:0 4px"></div>
-        <button class="share-period-pill" data-days="7"  onclick="shareSetPeriod(7)">7 วัน</button>
-        <button class="share-period-pill" data-days="30" onclick="shareSetPeriod(30)">30 วัน</button>
-        <button class="share-period-pill" data-days="90" onclick="shareSetPeriod(90)">90 วัน</button>
-        <button class="share-period-pill" data-days="0"  onclick="shareSetPeriod(0)">ทั้งหมด</button>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="share-period-pill" data-days="7"   onclick="shareQuickPeriod(7)">7 วัน</button>
+        <button class="share-period-pill" data-days="30"  onclick="shareQuickPeriod(30)">30 วัน</button>
+        <button class="share-period-pill" data-days="90"  onclick="shareQuickPeriod(90)">90 วัน</button>
+        <button class="share-period-pill" data-days="180" onclick="shareQuickPeriod(180)">6 เดือน</button>
+        <button class="share-period-pill" data-days="365" onclick="shareQuickPeriod(365)">1 ปี</button>
+        <button class="share-period-pill" data-days="0"   onclick="shareQuickPeriod(0)">ทั้งหมด</button>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+          <input type="date" id="share-from-date" class="share-date-input" onchange="shareCustomPeriod()">
+          <span style="color:var(--text3);font-size:12px">—</span>
+          <input type="date" id="share-to-date" class="share-date-input" onchange="shareCustomPeriod()">
+        </div>
       </div>
       <div style="display:flex;justify-content:center;background:#0f1117;border-radius:12px;padding:16px">
-        <canvas id="share-canvas" width="800" height="480" style="width:100%;max-width:660px;height:auto;border-radius:8px;display:block"></canvas>
+        <canvas id="share-canvas" width="800" height="540" style="width:100%;max-width:660px;height:auto;border-radius:8px;display:block"></canvas>
       </div>
       <div id="share-status" style="text-align:center;font-size:11px;color:var(--text3);margin-top:10px;height:16px"></div>
     </div>
@@ -3699,13 +3704,33 @@ if (window.electronAPI?.onUpdateStatus) {
 }
 
 /* ═══ SHARE MODAL ═══ */
-let shareState = { mode: 'month', year: 0, month: 0, days: 0 };
-const _SHARE_MONTH_NAMES = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+let shareState = { fromMs: 0, toMs: Date.now() };
+
+function _toDateStr(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function _fromDateStr(s) {
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d).getTime();
+}
+function _syncShareDateInputs() {
+  const f = document.getElementById('share-from-date');
+  const t = document.getElementById('share-to-date');
+  if (!f || !t) return;
+  const minMs = trades.length ? Math.min(...trades.map(x => getTradeTimeMs(x.openDt))) : Date.now() - 86400000*30;
+  f.value = _toDateStr(shareState.fromMs || minMs);
+  t.value = _toDateStr(shareState.toMs);
+}
+function _updateSharePillHighlight(activeDays) {
+  document.querySelectorAll('.share-period-pill').forEach(el =>
+    el.classList.toggle('active', activeDays !== null && +el.dataset.days === activeDays));
+}
 
 async function openShareModal() {
-  shareState = { mode: 'month', year: calYear, month: calMonth, days: 0 };
-  _updateShareMonthLabel();
-  _updateSharePillHighlight(null);
+  shareState = { fromMs: 0, toMs: Date.now() };
+  _syncShareDateInputs();
+  _updateSharePillHighlight(0);
   document.getElementById('share-overlay').classList.add('open');
   document.getElementById('share-status').textContent = '';
   await document.fonts.load('600 48px Mitr');
@@ -3713,280 +3738,219 @@ async function openShareModal() {
 }
 function closeShareModal() { document.getElementById('share-overlay').classList.remove('open'); }
 
-function shareNavMonth(delta) {
-  shareState.mode = 'month';
-  shareState.month += delta;
-  if (shareState.month < 0)  { shareState.month = 11; shareState.year--; }
-  if (shareState.month > 11) { shareState.month = 0;  shareState.year++; }
-  shareState.days = 0;
-  _updateShareMonthLabel();
-  _updateSharePillHighlight(null);
-  renderSharePreview();
-}
-function shareSetPeriod(days) {
-  shareState.mode = 'period';
-  shareState.days = days;
+function shareQuickPeriod(days) {
+  const now = Date.now();
+  shareState = { fromMs: days === 0 ? 0 : now - days * 86400000, toMs: now };
+  _syncShareDateInputs();
   _updateSharePillHighlight(days);
   renderSharePreview();
 }
-function _updateShareMonthLabel() {
-  document.getElementById('share-mon-lbl').textContent = _SHARE_MONTH_NAMES[shareState.month] + ' ' + shareState.year;
-}
-function _updateSharePillHighlight(activeDays) {
-  document.querySelectorAll('.share-period-pill').forEach(el =>
-    el.classList.toggle('active', activeDays !== null && +el.dataset.days === activeDays));
+function shareCustomPeriod() {
+  const f = document.getElementById('share-from-date').value;
+  const t = document.getElementById('share-to-date').value;
+  if (!f || !t) return;
+  shareState = { fromMs: _fromDateStr(f), toMs: _fromDateStr(t) + 86399999 };
+  _updateSharePillHighlight(null);
+  renderSharePreview();
 }
 
 function _shareGetTrades() {
-  if (shareState.mode === 'period') {
-    if (!shareState.days) return trades;
-    const cutoff = Date.now() - shareState.days * 86400000;
-    return trades.filter(t => getTradeTimeMs(t.openDt) >= cutoff);
-  }
-  const key = shareState.year + '-' + pad2(shareState.month + 1);
-  return trades.filter(t => t.openDt && getTradingMonthKey(t.openDt) === key);
-}
-function _shareGetDayMap() {
-  const dayMap = {};
-  trades.forEach(t => {
-    if (!t.openDt) return;
-    const key = getTradingDayKey(t.openDt);
-    const [yStr, mStr, dStr] = key.split('-');
-    if (parseInt(yStr) === shareState.year && parseInt(mStr) - 1 === shareState.month) {
-      const d = parseInt(dStr);
-      if (!dayMap[d]) dayMap[d] = { pnl: 0, count: 0 };
-      dayMap[d].pnl += t.pnl;
-      dayMap[d].count++;
-    }
+  const { fromMs, toMs } = shareState;
+  return trades.filter(t => {
+    const ms = getTradeTimeMs(t.openDt);
+    return ms >= fromMs && ms <= toMs;
   });
-  return dayMap;
+}
+function _buildShareHeatmap(ts) {
+  const dayPnl = {};
+  ts.forEach(t => {
+    const key = getTradingDayKey(t.openDt);
+    if (!dayPnl[key]) dayPnl[key] = { pnl: 0, count: 0 };
+    dayPnl[key].pnl += t.pnl; dayPnl[key].count++;
+  });
+  const minMs = shareState.fromMs || (ts.length ? Math.min(...ts.map(x => getTradeTimeMs(x.openDt))) : Date.now() - 86400000*30);
+  const from = new Date(minMs); from.setHours(0,0,0,0);
+  const to   = new Date(shareState.toMs); to.setHours(23,59,59,999);
+  const days = [];
+  for (const d = new Date(from); d <= to; d.setDate(d.getDate()+1)) {
+    const key = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    days.push({ key, dow: d.getDay(), month: d.getMonth(), data: dayPnl[key] || null });
+  }
+  return days;
 }
 function _fmtHeroPnl(v) {
   const dec = getPnlDecimals();
   const abs = Math.abs(v);
-  const sign = v >= 0 ? '+' : '−';
-  return sign + abs.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + getCurrencySymbol();
+  return (v >= 0 ? '+' : '−') + abs.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + getCurrencySymbol();
+}
+function _sharePeriodLabel() {
+  const { fromMs, toMs } = shareState;
+  if (!fromMs) return 'ทั้งหมด';
+  const f = new Date(fromMs), t = new Date(toMs);
+  return `${pad2(f.getDate())}/${pad2(f.getMonth()+1)}/${String(f.getFullYear()).slice(2)} – ${pad2(t.getDate())}/${pad2(t.getMonth()+1)}/${String(t.getFullYear()).slice(2)}`;
 }
 
 function renderSharePreview() {
   const canvas = document.getElementById('share-canvas');
   const ts = _shareGetTrades();
   const s  = ts.length ? calcStats(ts) : null;
-  if (shareState.mode === 'month') {
-    _drawShareCardMonth(canvas, ts, s, _shareGetDayMap());
-  } else {
-    _drawShareCardPeriod(canvas, ts, s);
-  }
+  _drawShareCard(canvas, ts, s);
 }
 
-function _shareCanvasSetup(canvas) {
+function _shareCanvasSetup(canvas, H) {
   const dpr = window.devicePixelRatio || 1;
-  canvas.width  = 800 * dpr;
-  canvas.height = 480 * dpr;
+  canvas.width = 800 * dpr; canvas.height = H * dpr;
   const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  return ctx;
+  ctx.scale(dpr, dpr); return ctx;
 }
 function _roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
 }
 
-function _drawShareCardBase(ctx, W, H, ts, s) {
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#1a1d2e');
-  grad.addColorStop(1, '#0f1117');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
+function _drawShareCard(canvas, ts, s) {
+  const W = 800, H = 540;
+  const ctx = _shareCanvasSetup(canvas, H);
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-  ctx.lineWidth = 1;
-  for (let y = 60; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  // Background
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#1a1d2e'); grad.addColorStop(1,'#0f1117');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,0.03)'; ctx.lineWidth=1;
+  for(let y=60;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
 
-  ctx.fillStyle = '#6366f1';
-  ctx.beginPath(); ctx.arc(50, 38, 18, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.font = '700 18px Mitr, sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('D', 50, 38);
-  ctx.textBaseline = 'alphabetic';
+  // Logo
+  ctx.fillStyle='#6366f1'; ctx.beginPath(); ctx.arc(50,38,18,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='700 18px Mitr,sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('D',50,38);
+  ctx.textBaseline='alphabetic';
+  ctx.font='600 16px Mitr,sans-serif'; ctx.textAlign='left'; ctx.fillStyle='#f1f5f9'; ctx.fillText('DOSHO',76,32);
+  ctx.font='400 11px Mitr,sans-serif'; ctx.fillStyle='#64748b'; ctx.fillText('Trading Journal',76,48);
+  ctx.font='500 12px Mitr,sans-serif'; ctx.textAlign='right'; ctx.fillStyle='#94a3b8'; ctx.fillText(_sharePeriodLabel(),W-32,38);
 
-  ctx.font = '600 16px Mitr, sans-serif';
-  ctx.textAlign = 'left'; ctx.fillStyle = '#f1f5f9';
-  ctx.fillText('DOSHO', 76, 32);
-  ctx.font = '400 11px Mitr, sans-serif';
-  ctx.fillStyle = '#64748b';
-  ctx.fillText('Trading Journal', 76, 48);
+  // Header sep
+  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(32,68); ctx.lineTo(W-32,68); ctx.stroke();
 
-  const periodLabel = shareState.mode === 'month'
-    ? _SHARE_MONTH_NAMES[shareState.month] + ' ' + shareState.year
-    : (shareState.days === 0 ? 'ทั้งหมด' : shareState.days + ' วัน');
-  ctx.font = '500 13px Mitr, sans-serif';
-  ctx.textAlign = 'right'; ctx.fillStyle = '#94a3b8';
-  ctx.fillText(periodLabel, W - 32, 38);
+  // Hero PnL
+  ctx.font='400 11px Mitr,sans-serif'; ctx.textAlign='center'; ctx.fillStyle='#64748b';
+  ctx.fillText('กำไร/ขาดทุนสุทธิ',W/2,90);
+  const netPnl=s?s.netPnl:0;
+  const heroColor=!s?'#64748b':netPnl>=0?'#10b981':'#f87171';
+  ctx.font='600 50px Mitr,sans-serif'; ctx.textAlign='center'; ctx.fillStyle=heroColor;
+  ctx.fillText(s?_fmtHeroPnl(netPnl):'—',W/2,145);
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(32, 68); ctx.lineTo(W - 32, 68); ctx.stroke();
+  // Stats sep
+  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(32,165); ctx.lineTo(W-32,165); ctx.stroke();
 
-  ctx.font = '400 12px Mitr, sans-serif';
-  ctx.textAlign = 'center'; ctx.fillStyle = '#64748b';
-  ctx.fillText('กำไร/ขาดทุนสุทธิ', W / 2, 100);
-
-  const netPnl = s ? s.netPnl : 0;
-  const heroColor = !s ? '#64748b' : netPnl >= 0 ? '#10b981' : '#f87171';
-  ctx.font = '600 52px Mitr, sans-serif';
-  ctx.textAlign = 'center'; ctx.fillStyle = heroColor;
-  ctx.fillText(s ? _fmtHeroPnl(netPnl) : '—', W / 2, 155);
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(32, 180); ctx.lineTo(W - 32, 180); ctx.stroke();
-
-  const statsData = [
-    { label: 'Win Rate',      value: s ? s.wr.toFixed(1) + '%' : '—' },
-    { label: 'Profit Factor', value: s ? (s.pf === Infinity ? '∞' : s.pf != null ? s.pf.toFixed(2) : '—') : '—' },
-    { label: 'Trades',        value: ts.length.toString() },
-    { label: 'Best Trade',    value: s && s.best != null ? _fmtHeroPnl(s.best) : '—' },
+  // 4 stat cells
+  const statsData=[
+    {label:'Win Rate',      value:s?s.wr.toFixed(1)+'%':'—'},
+    {label:'Profit Factor', value:s?(s.pf===Infinity?'∞':s.pf!=null?s.pf.toFixed(2):'—'):'—'},
+    {label:'Trades',        value:ts.length.toString()},
+    {label:'Best Trade',    value:s&&s.best!=null?_fmtHeroPnl(s.best):'—'},
   ];
-  const statXs = [133, 267, 533, 667];
-  statsData.forEach(({ label, value }, i) => {
-    ctx.font = '400 10px Mitr, sans-serif';
-    ctx.textAlign = 'center'; ctx.fillStyle = '#64748b';
-    ctx.fillText(label, statXs[i], 198);
-    ctx.font = '600 15px Mitr, sans-serif';
-    ctx.fillStyle = '#f1f5f9';
-    ctx.fillText(value, statXs[i], 218);
+  const statXs=[133,267,533,667];
+  statsData.forEach(({label,value},i)=>{
+    ctx.font='400 10px Mitr,sans-serif'; ctx.textAlign='center'; ctx.fillStyle='#64748b'; ctx.fillText(label,statXs[i],182);
+    ctx.font='600 14px Mitr,sans-serif'; ctx.fillStyle='#f1f5f9'; ctx.fillText(value,statXs[i],200);
   });
-  [200, 400, 600].forEach(x => {
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x, 185); ctx.lineTo(x, 230); ctx.stroke();
+  [200,400,600].forEach(x=>{
+    ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,168); ctx.lineTo(x,210); ctx.stroke();
   });
-  if (s) {
-    ctx.font = '500 12px Mitr, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#10b981'; ctx.fillText(s.wins.length + ' Wins', W / 2 - 52, 250);
-    ctx.fillStyle = '#64748b'; ctx.fillText('·', W / 2, 250);
-    ctx.fillStyle = '#f87171'; ctx.fillText(s.losses.length + ' Losses', W / 2 + 54, 250);
+  if(s){
+    ctx.font='500 11px Mitr,sans-serif'; ctx.textAlign='center';
+    ctx.fillStyle='#10b981'; ctx.fillText(s.wins.length+' Wins',W/2-52,224);
+    ctx.fillStyle='#64748b'; ctx.fillText('·',W/2,224);
+    ctx.fillStyle='#f87171'; ctx.fillText(s.losses.length+' Losses',W/2+54,224);
   }
+
+  // Section divider + labels
+  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(32,238); ctx.lineTo(W-32,238); ctx.stroke();
+  ctx.font='400 10px Mitr,sans-serif'; ctx.fillStyle='#64748b';
+  ctx.textAlign='left';  ctx.fillText('ปฏิทิน',32,252);
+  ctx.textAlign='left';  ctx.fillText('Equity Curve',414,252);
+  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(403,238); ctx.lineTo(403,508); ctx.stroke();
+
+  // Left: heatmap, Right: sparkline
+  _drawShareHeatmap(ctx, _buildShareHeatmap(ts), 24, 260, 372, 246);
+  _drawShareSparkline(ctx, ts, 414, 260, 358, 246);
+
+  // Footer
+  ctx.font='400 10px Mitr,sans-serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(100,116,139,0.5)';
+  ctx.fillText('dosho.app',W/2,H-14);
 }
 
-function _drawShareCardMonth(canvas, ts, s, dayMap) {
-  const ctx = _shareCanvasSetup(canvas);
-  const W = 800, H = 480;
-  _drawShareCardBase(ctx, W, H, ts, s);
-
-  const dowLabels = ['อา','จ','อ','พ','พฤ','ศ','ส'];
-  const CELL = 28, GAP = 5;
-  const gridW = 7 * CELL + 6 * GAP;
-  const startX = Math.floor((W - gridW) / 2);
-  const startY = 270;
-
-  ctx.font = '500 9px Mitr, sans-serif';
-  ctx.fillStyle = '#64748b';
-  ctx.textAlign = 'center';
-  dowLabels.forEach((lbl, i) => ctx.fillText(lbl, startX + i * (CELL + GAP) + CELL / 2, startY - 6));
-
-  const firstDay = new Date(shareState.year, shareState.month, 1).getDay();
-  const daysInMonth = new Date(shareState.year, shareState.month + 1, 0).getDate();
-  const cells = [];
-  for (let i = 0; i < firstDay; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  while (cells.length % 7 !== 0) cells.push(null);
-  const weeks = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-
-  weeks.forEach((week, wi) => {
-    week.forEach((day, di) => {
-      const cx = startX + di * (CELL + GAP);
-      const cy = startY + wi * (CELL + GAP);
-      _roundRect(ctx, cx, cy, CELL, CELL, 5);
-      if (!day) { ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fill(); return; }
-      const data = dayMap[day];
-      ctx.fillStyle = !data ? '#2d3058' : data.pnl >= 0 ? 'rgba(16,185,129,0.75)' : 'rgba(248,113,113,0.75)';
-      ctx.fill();
-      ctx.font = '500 9px Mitr, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillStyle = data ? '#fff' : 'rgba(255,255,255,0.35)';
-      ctx.fillText(day, cx + CELL / 2, cy + 3);
-      if (data) {
-        const abs = Math.abs(data.pnl);
-        const pnlStr = (data.pnl >= 0 ? '+' : '-') + (abs >= 1000 ? (abs / 1000).toFixed(1) + 'K' : abs.toFixed(0));
-        ctx.font = '400 7px Mitr, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.fillText(pnlStr, cx + CELL / 2, cy + 15);
+function _drawShareHeatmap(ctx, days, x, y, w, h) {
+  if (!days.length) {
+    ctx.font='400 12px Mitr,sans-serif'; ctx.textAlign='center'; ctx.fillStyle='#2d3058';
+    ctx.fillText('ไม่มีข้อมูล',x+w/2,y+h/2); return;
+  }
+  const firstDow = days[0].dow;
+  const padded   = Array(firstDow).fill(null).concat(days);
+  const totalWeeks = Math.ceil(padded.length/7);
+  const GAP = 2;
+  const cell = Math.max(6, Math.min(14, Math.floor((w-(totalWeeks-1)*GAP)/totalWeeks)));
+  const cellH= Math.max(6, Math.min(cell, Math.floor((h-16-6*GAP)/7)));
+  const startY = y + 14;
+  const MN = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  let lastM = -1;
+  for (let wi=0; wi<totalWeeks; wi++) {
+    const cx = x + wi*(cell+GAP);
+    // Month label
+    const rep = padded[wi*7]||padded[wi*7+1]||padded[wi*7+2];
+    if (rep && rep.month !== lastM) {
+      lastM = rep.month;
+      if (cell >= 8) {
+        ctx.font=`400 ${Math.min(9,cell)}px Mitr,sans-serif`;
+        ctx.textAlign='left'; ctx.fillStyle='#64748b';
+        ctx.fillText(MN[lastM], cx, y+10);
       }
-      ctx.textBaseline = 'alphabetic';
-    });
-  });
-
-  ctx.font = '400 11px Mitr, sans-serif';
-  ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(100,116,139,0.5)';
-  ctx.fillText('dosho.app', W / 2, H - 14);
+    }
+    for (let di=0; di<7; di++) {
+      const entry = padded[wi*7+di];
+      const cy = startY + di*(cellH+GAP);
+      _roundRect(ctx,cx,cy,cell,cellH,Math.max(2,Math.floor(cell/5)));
+      if (!entry)           { ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fill(); }
+      else if (!entry.data) { ctx.fillStyle='#1e2040';               ctx.fill(); }
+      else if (entry.data.pnl>=0) { ctx.fillStyle='rgba(16,185,129,0.8)';  ctx.fill(); }
+      else                  { ctx.fillStyle='rgba(248,113,113,0.8)'; ctx.fill(); }
+    }
+  }
 }
 
-function _drawShareCardPeriod(canvas, ts, s) {
-  const ctx = _shareCanvasSetup(canvas);
-  const W = 800, H = 480;
-  _drawShareCardBase(ctx, W, H, ts, s);
-
-  const sX = 32, sY = 268, sW = 736, sH = 160;
-  ctx.font = '400 10px Mitr, sans-serif';
-  ctx.textAlign = 'left'; ctx.fillStyle = '#64748b';
-  ctx.fillText('Cumulative P&L', sX, sY - 6);
-
+function _drawShareSparkline(ctx, ts, x, y, w, h) {
   if (ts.length < 2) {
-    ctx.font = '400 13px Mitr, sans-serif';
-    ctx.textAlign = 'center'; ctx.fillStyle = '#2d3058';
-    ctx.fillText('ไม่มีข้อมูลเพียงพอ', W / 2, sY + sH / 2);
-  } else {
-    const sorted = [...ts].sort((a, b) => getTradeTimeMs(a.openDt) - getTradeTimeMs(b.openDt));
-    const cumVals = [];
-    let cum = 0;
-    sorted.forEach(t => { cum += t.pnl; cumVals.push(cum); });
-    const minV = Math.min(0, ...cumVals);
-    const maxV = Math.max(0, ...cumVals);
-    const range = maxV - minV || 1;
-    const toY = v => sY + sH - ((v - minV) / range) * sH;
-    const toX = i => sX + (i / (cumVals.length - 1)) * sW;
-
-    const zeroY = toY(0);
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.moveTo(sX, zeroY); ctx.lineTo(sX + sW, zeroY); ctx.stroke();
-    ctx.setLineDash([]);
-
-    const isFinalProfit = cumVals[cumVals.length - 1] >= 0;
-    const lineColor  = isFinalProfit ? '#10b981' : '#f87171';
-    const areaColor  = isFinalProfit ? 'rgba(16,185,129,0.12)' : 'rgba(248,113,113,0.12)';
-
-    ctx.beginPath();
-    ctx.moveTo(toX(0), sY + sH);
-    cumVals.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
-    ctx.lineTo(toX(cumVals.length - 1), sY + sH);
-    ctx.closePath();
-    ctx.fillStyle = areaColor; ctx.fill();
-
-    ctx.beginPath();
-    cumVals.forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
-    ctx.strokeStyle = lineColor; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
-
-    const lastX = toX(cumVals.length - 1);
-    const lastY = toY(cumVals[cumVals.length - 1]);
-    ctx.beginPath(); ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
-    ctx.fillStyle = lineColor; ctx.fill();
+    ctx.font='400 12px Mitr,sans-serif'; ctx.textAlign='center'; ctx.fillStyle='#2d3058';
+    ctx.fillText('ไม่มีข้อมูลเพียงพอ',x+w/2,y+h/2); return;
   }
-
-  ctx.font = '400 11px Mitr, sans-serif';
-  ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(100,116,139,0.5)';
-  ctx.fillText('dosho.app', W / 2, H - 14);
+  const sorted=[...ts].sort((a,b)=>getTradeTimeMs(a.openDt)-getTradeTimeMs(b.openDt));
+  const cumVals=[]; let cum=0;
+  sorted.forEach(t=>{cum+=t.pnl; cumVals.push(cum);});
+  const minV=Math.min(0,...cumVals), maxV=Math.max(0,...cumVals), range=maxV-minV||1;
+  const toY=v=>y+h-((v-minV)/range)*h;
+  const toX=i=>x+(i/(cumVals.length-1))*w;
+  const zeroY=toY(0);
+  ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(x,zeroY); ctx.lineTo(x+w,zeroY); ctx.stroke();
+  ctx.setLineDash([]);
+  const profit=cumVals[cumVals.length-1]>=0;
+  const lc=profit?'#10b981':'#f87171', ac=profit?'rgba(16,185,129,0.12)':'rgba(248,113,113,0.12)';
+  ctx.beginPath(); ctx.moveTo(toX(0),y+h);
+  cumVals.forEach((v,i)=>ctx.lineTo(toX(i),toY(v)));
+  ctx.lineTo(toX(cumVals.length-1),y+h); ctx.closePath(); ctx.fillStyle=ac; ctx.fill();
+  ctx.beginPath();
+  cumVals.forEach((v,i)=>i===0?ctx.moveTo(toX(i),toY(v)):ctx.lineTo(toX(i),toY(v)));
+  ctx.strokeStyle=lc; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke();
+  const lx=toX(cumVals.length-1), ly=toY(cumVals[cumVals.length-1]);
+  ctx.beginPath(); ctx.arc(lx,ly,4,0,Math.PI*2); ctx.fillStyle=lc; ctx.fill();
 }
 
 async function copyShareImage() {
