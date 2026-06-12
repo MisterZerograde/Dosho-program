@@ -254,7 +254,7 @@ app.whenReady().then(async () => {
 
   if (app.isPackaged) {
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoInstallOnAppQuit = false;
 
     const sendUpdate = (type, data) => { if (win) win.webContents.send('updater', { type, ...data }); };
     autoUpdater.on('checking-for-update',  ()    => sendUpdate('checking', {}));
