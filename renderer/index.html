@@ -50,6 +50,11 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
 .nav-item.active{background:var(--sidebar-active);color:var(--sidebar-active-text);box-shadow:inset 3px 0 0 var(--sidebar-active-text)}
 .nav-item svg{flex-shrink:0;opacity:.7}
 .nav-item.active svg{opacity:1}
+.update-dot{width:7px;height:7px;border-radius:50%;background:#f59e0b;flex-shrink:0;margin-left:auto;display:none}
+.update-dot.ready{background:#10b981}
+#update-toast{position:fixed;top:16px;right:16px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);display:none;flex-direction:column;gap:8px;max-width:280px;animation:toast-in .25s ease}
+#update-toast.show{display:flex}
+@keyframes toast-in{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 .nav-sep{height:1px;background:var(--sidebar-border);margin:6px 0}
 .sb-footer{padding:10px;border-top:1px solid var(--sidebar-border)}
 .acct-row{display:flex;align-items:center;gap:9px;padding:8px;border-radius:8px}
@@ -550,9 +555,10 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
       บัญชี
     </button>
     <div class="nav-sep"></div>
-    <button class="nav-item" onclick="switchPanel('settings',this)">
+    <button class="nav-item" id="nav-settings-btn" onclick="switchPanel('settings',this)">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
       การตั้งค่า
+      <span id="update-nav-dot" class="update-dot"></span>
     </button>
   </nav>
   <div class="sb-footer">
@@ -1095,6 +1101,17 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
     </div>
     <div class="modal-bd" id="day-body"></div>
   </div>
+</div>
+
+<!-- ═══ UPDATE TOAST ═══ -->
+<div id="update-toast">
+  <div style="display:flex;align-items:center;gap:8px">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span id="update-toast-text" style="font-weight:600;color:var(--text);font-size:13px"></span>
+    <button onclick="document.getElementById('update-toast').classList.remove('show')" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1;font-family:inherit">✕</button>
+  </div>
+  <div id="update-toast-sub" style="color:var(--text3);font-size:11px;padding-left:22px"></div>
+  <button class="btn btn-primary" style="font-size:12px;padding:5px 12px;margin-top:2px" onclick="switchPanel('settings',document.getElementById('nav-settings-btn'));document.getElementById('update-toast').classList.remove('show')">ไปที่การตั้งค่า →</button>
 </div>
 
 <!-- ═══ SHARE MODAL ═══ -->
@@ -3710,14 +3727,34 @@ function triggerInstallUpdate() {
   _setUpdateUI('กำลังติดตั้ง...', 'แอปจะรีสตาร์ท', false, false);
   window.electronAPI.installUpdate();
 }
+function _showUpdateToast(text, sub) {
+  const dot = document.getElementById('update-nav-dot');
+  if (dot) { dot.style.display = 'block'; dot.classList.add('ready'); }
+  const tt = document.getElementById('update-toast-text');
+  const ts = document.getElementById('update-toast-sub');
+  const toast = document.getElementById('update-toast');
+  if (tt) tt.textContent = text;
+  if (ts) ts.textContent = sub;
+  if (toast) { toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 12000); }
+}
 if (window.electronAPI?.onUpdateStatus) {
   window.electronAPI.onUpdateStatus(({ type, version, percent, msg }) => {
-    if (type === 'checking')       _setUpdateUI('กำลังตรวจสอบอัปเดต...', '', false, false);
-    if (type === 'not-available')  _setUpdateUI('คุณใช้เวอร์ชันล่าสุดแล้ว', '', false, false);
-    if (type === 'available')      _setUpdateUI('พบอัปเดต v' + version, 'กำลังดาวน์โหลด...', false, true);
-    if (type === 'progress')       { _setUpdateUI('กำลังดาวน์โหลด ' + percent + '%', '', false, true); document.getElementById('update-progress-fill').style.width = percent + '%'; }
-    if (type === 'downloaded')     _setUpdateUI('ดาวน์โหลดแล้ว v' + version, 'พร้อมติดตั้ง', true, false);
-    if (type === 'error')          _setUpdateUI('เกิดข้อผิดพลาด', msg, false, false);
+    if (type === 'checking')      _setUpdateUI('กำลังตรวจสอบอัปเดต...', '', false, false);
+    if (type === 'not-available') _setUpdateUI('คุณใช้เวอร์ชันล่าสุดแล้ว', '', false, false);
+    if (type === 'available') {
+      const dot = document.getElementById('update-nav-dot');
+      if (dot) dot.style.display = 'block';
+      _setUpdateUI('พบอัปเดต v' + version, 'กำลังดาวน์โหลด...', false, true);
+    }
+    if (type === 'progress') {
+      _setUpdateUI('กำลังดาวน์โหลด ' + percent + '%', '', false, true);
+      document.getElementById('update-progress-fill').style.width = percent + '%';
+    }
+    if (type === 'downloaded') {
+      _showUpdateToast('อัปเดต v' + version + ' พร้อมแล้ว', 'คลิก "ไปที่การตั้งค่า" เพื่อติดตั้ง');
+      _setUpdateUI('ดาวน์โหลดแล้ว v' + version, 'พร้อมติดตั้ง', true, false);
+    }
+    if (type === 'error') _setUpdateUI('เกิดข้อผิดพลาด', msg, false, false);
   });
 }
 
