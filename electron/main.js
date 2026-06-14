@@ -1,17 +1,20 @@
 'use strict';
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
-const path = require('path');
-const http = require('http');
-const fs   = require('fs');
+const path    = require('path');
+const http    = require('http');
+const fs      = require('fs');
+const { spawn } = require('child_process');
+const treeKill  = require('tree-kill');
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 app.on('second-instance', () => { if (win) { win.show(); win.focus(); } });
 
 const BRIDGE_URL = 'http://127.0.0.1:5678';
 
-let win          = null;
+let win           = null;
 let rendererReady = false;
+let bridgeProc    = null;
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 function httpGet(url, timeoutMs = 5000) {
@@ -24,6 +27,17 @@ function httpGet(url, timeoutMs = 5000) {
     req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
     req.on('error', reject);
   });
+}
+
+// ── Bridge auto-launch ────────────────────────────────────────────────────────
+async function launchBridgeIfNeeded() {
+  try { await httpGet(`${BRIDGE_URL}/status`, 1500); return; } catch {}
+  const exePath = app.isPackaged
+    ? path.join(process.resourcesPath, 'mt5_bridge.exe')
+    : path.join(__dirname, '..', 'mt5_bridge', 'dist', 'mt5_bridge.exe');
+  if (!fs.existsSync(exePath)) return;
+  bridgeProc = spawn(exePath, [], { detached: false, stdio: 'ignore', windowsHide: true });
+  bridgeProc.on('exit', () => { bridgeProc = null; });
 }
 
 // ── Bridge sync (triggered manually from renderer) ────────────────────────────
@@ -81,7 +95,12 @@ function createWindow() {
 }
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
+app.on('before-quit', () => {
+  if (bridgeProc && bridgeProc.pid) { treeKill(bridgeProc.pid); bridgeProc = null; }
+});
+
 app.whenReady().then(() => {
+  launchBridgeIfNeeded();
   createWindow();
 
   ipcMain.handle('dialog:openFile', (_, opts) => dialog.showOpenDialog(win, opts));
