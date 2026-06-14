@@ -36,7 +36,7 @@ async function launchBridgeIfNeeded() {
     ? path.join(process.resourcesPath, 'mt5_bridge.exe')
     : path.join(__dirname, '..', 'mt5_bridge', 'dist', 'mt5_bridge.exe');
   if (!fs.existsSync(exePath)) return;
-  bridgeProc = spawn(exePath, [], { detached: false, stdio: 'ignore', windowsHide: true });
+  bridgeProc = spawn(exePath, ['--headless'], { detached: false, stdio: 'ignore', windowsHide: true });
   bridgeProc.on('exit', () => { bridgeProc = null; });
 }
 
