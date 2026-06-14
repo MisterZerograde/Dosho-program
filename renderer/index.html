@@ -4027,8 +4027,8 @@ function _drawShareHeatmap(ctx, days, x, y, w, h, C) {
   const padded=Array(firstDow).fill(null).concat(days);
   const totalWeeks=Math.ceil(padded.length/7);
   const GAP=2;
-  const cell=Math.max(6,Math.min(14,Math.floor((w-(totalWeeks-1)*GAP)/totalWeeks)));
-  const cellH=Math.max(6,Math.min(cell,Math.floor((h-16-6*GAP)/7)));
+  const cell=Math.max(6,Math.floor((w-(totalWeeks-1)*GAP)/totalWeeks));
+  const cellH=Math.max(6,Math.floor((h-16-6*GAP)/7));
   const startY=y+14;
   const MN=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   let lastM=-1;
