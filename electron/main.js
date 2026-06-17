@@ -120,7 +120,11 @@ app.whenReady().then(() => {
     autoUpdater.on('update-not-available', ()  => sendUpdate('not-available', {}));
     autoUpdater.on('download-progress',    (p) => sendUpdate('progress', { percent: Math.floor(p.percent) }));
     autoUpdater.on('update-downloaded',    (i) => sendUpdate('downloaded', { version: i.version }));
-    autoUpdater.on('error',                (e) => sendUpdate('error', { msg: e.message }));
+    autoUpdater.on('error', (e) => {
+      const m = e.message || '';
+      if (m.includes('latest.yml') || m.includes('404') || m.includes('ENOENT')) return;
+      sendUpdate('error', { msg: m });
+    });
 
     ipcMain.handle('updater:check',   () => autoUpdater.checkForUpdates());
     ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall());
