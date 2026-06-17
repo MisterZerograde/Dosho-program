@@ -3411,6 +3411,28 @@ function _showMT5SetupModal() {
   document.body.appendChild(ov);
 }
 
+function _showOpenMT5Prompt() {
+  if (document.getElementById('_mt5-open-modal')) return;
+  const ov = document.createElement('div');
+  ov.id = '_mt5-open-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML = `
+    <div style="background:var(--surface);border-radius:14px;padding:24px;max-width:360px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.4)">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:10px;background:var(--purple);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div style="font-size:17px;font-weight:700">กรุณาเปิด MetaTrader 5</div>
+      </div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.6">
+        ไม่สามารถเชื่อมต่อกับ MT5 ได้<br>กรุณาเปิด <b style="color:var(--text)">MetaTrader 5</b> และล็อกอินก่อน แล้วลองซิงค์ใหม่อีกครั้ง
+      </div>
+      <button onclick="document.getElementById('_mt5-open-modal').remove()" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--purple);color:#fff;cursor:pointer;font-size:13px;font-weight:600">ตกลง</button>
+    </div>`;
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+
 async function syncMT5() {
   const btn = document.getElementById('btn-sync-mt5');
   const lbl = btn.querySelector('.btn-label');
@@ -3418,6 +3440,21 @@ async function syncMT5() {
   lbl.textContent = 'กำลังซิงค์...';
   _updateDot('syncing', 'กำลังซิงค์...');
   try {
+    let status = null;
+    try {
+      const sRes = await fetch('http://127.0.0.1:5678/status', { signal: AbortSignal.timeout(3000) });
+      if (sRes.ok) status = await sRes.json();
+    } catch {}
+    if (!status) {
+      _updateDot('offline', 'MT5 Bridge ออฟไลน์');
+      if (window.__ELECTRON__) _showOpenMT5Prompt(); else _showMT5SetupModal();
+      return;
+    }
+    if (!status.connected) {
+      _updateDot('warn', 'Bridge กำลังทำงาน — MT5 ยังไม่ได้เชื่อมต่อ\nเปิด MetaTrader 5 แล้วล็อกอิน');
+      _showOpenMT5Prompt();
+      return;
+    }
     const res = await fetch('http://127.0.0.1:5678/sync', { signal: AbortSignal.timeout(15000) });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -3450,9 +3487,7 @@ async function syncMT5() {
       false
     );
   } catch (e) {
-    const offline = e instanceof TypeError || e.name === 'AbortError' || e.name === 'TimeoutError';
-    if (offline) { _updateDot('offline', 'MT5 Bridge ออฟไลน์'); if (window.__ELECTRON__) _showSyncToast('✗ MT5 Bridge กำลังเริ่มต้น — รอสักครู่แล้วลองใหม่', true); else _showMT5SetupModal(); }
-    else { await checkMT5Bridge(); _showSyncToast('✗ ' + e.message, true); }
+    await checkMT5Bridge(); _showSyncToast('✗ ' + e.message, true);
   } finally {
     btn.disabled = false;
     lbl.textContent = 'Sync MT5';
