@@ -3510,7 +3510,7 @@ async function syncMT5() {
       false
     );
   } catch (e) {
-    await checkMT5Bridge(); _showSyncToast('✗ ' + e.message, true);
+    await checkMT5Bridge(); _showSyncToast('✗ Sync ล้มเหลว  Error: E001', true);
   } finally {
     btn.disabled = false;
     lbl.textContent = 'Sync MT5';
@@ -3812,7 +3812,7 @@ if (window.electronAPI?.onUpdateStatus) {
       _showUpdateToast('อัปเดต v' + version + ' พร้อมแล้ว', 'คลิก "ไปที่การตั้งค่า" เพื่อติดตั้ง');
       _setUpdateUI('ดาวน์โหลดแล้ว v' + version, 'พร้อมติดตั้ง', true, false);
     }
-    if (type === 'error') _setUpdateUI('เกิดข้อผิดพลาด', msg, false, false);
+    if (type === 'error') _setUpdateUI('อัปเดตล้มเหลว  Error: E002', '', false, false);
   });
 }
 
@@ -4162,7 +4162,7 @@ async function copyShareImage() {
     }
   } catch(err) {
     status.style.color='#f87171';
-    status.textContent='เกิดข้อผิดพลาด: '+err.message;
+    status.textContent='บันทึกรูปล้มเหลว  Error: E003';
   }
   setTimeout(()=>{
     btn.disabled=false;

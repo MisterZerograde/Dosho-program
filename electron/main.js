@@ -123,7 +123,8 @@ app.whenReady().then(() => {
     autoUpdater.on('error', (e) => {
       const m = e.message || '';
       if (m.includes('latest.yml') || m.includes('404') || m.includes('ENOENT')) return;
-      sendUpdate('error', { msg: m });
+      console.error('[updater E002]', m);
+      sendUpdate('error', {});
     });
 
     ipcMain.handle('updater:check',   () => autoUpdater.checkForUpdates());
