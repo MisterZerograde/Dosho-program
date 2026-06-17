@@ -125,28 +125,38 @@ def _fetch_and_cache():
             _status = {"connected": False, "login": None, "server": None, "balance": None, "currency": None}
             return False, "MT5 ไม่ได้เชื่อมต่อ"
         try:
-            info  = mt5.account_info()
-            deals = mt5.history_deals_get(datetime.now() - timedelta(days=days), datetime.now())
+            info      = mt5.account_info()
+            deals     = mt5.history_deals_get(datetime.now() - timedelta(days=days), datetime.now())
+            term_info = mt5.terminal_info()
         finally:
             mt5.shutdown()
+
+    server_tz_offset = None
+    if term_info and hasattr(term_info, 'time_msc') and term_info.time_msc:
+        try:
+            offset_h = round((term_info.time_msc / 1000 - time.time()) / 3600)
+            server_tz_offset = int(max(-12, min(14, offset_h)))
+        except Exception:
+            pass
 
     TRADE_MODES = {0: "Demo", 1: "Contest", 2: "Real"}
     if info:
         _status = {
-            "connected":    True,
-            "login":        info.login,
-            "server":       info.server,
-            "name":         info.name,
-            "company":      info.company,
-            "trade_mode":   TRADE_MODES.get(info.trade_mode, "Unknown"),
-            "leverage":     info.leverage,
-            "balance":      round(info.balance, 2),
-            "equity":       round(info.equity, 2),
-            "profit":       round(info.profit, 2),
-            "margin":       round(info.margin, 2),
-            "margin_free":  round(info.margin_free, 2),
-            "margin_level": round(info.margin_level, 2) if info.margin_level else None,
-            "currency":     info.currency,
+            "connected":       True,
+            "login":           info.login,
+            "server":          info.server,
+            "name":            info.name,
+            "company":         info.company,
+            "trade_mode":      TRADE_MODES.get(info.trade_mode, "Unknown"),
+            "leverage":        info.leverage,
+            "balance":         round(info.balance, 2),
+            "equity":          round(info.equity, 2),
+            "profit":          round(info.profit, 2),
+            "margin":          round(info.margin, 2),
+            "margin_free":     round(info.margin_free, 2),
+            "margin_level":    round(info.margin_level, 2) if info.margin_level else None,
+            "currency":        info.currency,
+            "server_tz_offset": server_tz_offset,
         }
     trades = _deals_to_trades(deals) if deals is not None else []
 

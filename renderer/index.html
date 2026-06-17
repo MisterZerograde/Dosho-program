@@ -1193,6 +1193,10 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
         <label class="form-label">ชื่อระบบเทรด</label>
         <input class="form-input" id="acct-strategy" placeholder="เช่น ICT Model 3">
       </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">MT5 Login Number <span style="font-size:11px;color:var(--text3);font-weight:400">(ไม่บังคับ — ใช้ระบุบัญชี MT5 สำหรับ Auto Sync)</span></label>
+        <input class="form-input" id="acct-mt5login" type="text" inputmode="numeric" placeholder="เช่น 12345678">
+      </div>
       <div id="acct-err" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn btn-ghost" onclick="closeAccountModal()">ยกเลิก</button>
@@ -3031,6 +3035,7 @@ function openNewAccountModal() {
   document.getElementById('acct-balance').value = '';
   document.getElementById('acct-currency').value = 'USD';
   document.getElementById('acct-strategy').value = '';
+  document.getElementById('acct-mt5login').value = '';
   document.getElementById('acct-err').style.display = 'none';
   document.getElementById('acct-overlay').classList.add('open');
   setTimeout(() => document.getElementById('acct-name').focus(), 100);
@@ -3045,6 +3050,7 @@ function openEditAccountModal(id) {
   document.getElementById('acct-balance').value = a.balance;
   document.getElementById('acct-currency').value = a.currency || 'USD';
   document.getElementById('acct-strategy').value = a.strategy || '';
+  document.getElementById('acct-mt5login').value = a.mt5Login || '';
   document.getElementById('acct-err').style.display = 'none';
   document.getElementById('acct-overlay').classList.add('open');
 }
@@ -3057,13 +3063,14 @@ function saveAccountModal() {
   const balance = parseFloat(document.getElementById('acct-balance').value) || 0;
   const currency = document.getElementById('acct-currency').value;
   const strategy = document.getElementById('acct-strategy').value.trim() || 'ระบบเทรด';
+  const mt5Login = document.getElementById('acct-mt5login').value.trim() || null;
   if(editAccountId) {
     const a = accounts.find(x => x.id === editAccountId);
-    if(a) { a.name = name; a.balance = balance; a.currency = currency; a.strategy = strategy; }
+    if(a) { a.name = name; a.balance = balance; a.currency = currency; a.strategy = strategy; a.mt5Login = mt5Login; }
     if(editAccountId === activeAccountId) { settings.balance = balance; settings.currency = currency; settings.strategy = strategy; localStorage.setItem('dosho_settings', JSON.stringify(settings)); renderDashboard(); renderCalendar(); renderChecklist(); updateSidebar(); }
   } else {
     const id = 'acct_' + Date.now();
-    accounts.push({ id, name, balance, currency, strategy });
+    accounts.push({ id, name, balance, currency, strategy, mt5Login });
   }
   persistAccounts();
   closeAccountModal();
@@ -3094,7 +3101,7 @@ function renderAccountsList() {
       <div style="width:36px;height:36px;border-radius:50%;background:${isActive?'var(--purple-dim)':'var(--surface2)'};border:${isActive?'2px solid var(--purple)':'1px solid var(--border)'};display:flex;align-items:center;justify-content:center;font-weight:700;color:${isActive?'var(--purple2)':'var(--text3)'};flex-shrink:0">${(a.name||'A').charAt(0).toUpperCase()}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${a.name}${isActive?'<span style="font-size:10px;background:var(--purple-dim);color:var(--purple2);padding:1px 7px;border-radius:10px;font-weight:600">ใช้งานอยู่</span>':''}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${a.strategy||'ระบบเทรด'} &nbsp;·&nbsp; ${a.balance.toLocaleString('th-TH')}${aSym} &nbsp;·&nbsp; ${a.currency}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${a.strategy||'ระบบเทรด'} &nbsp;·&nbsp; ${a.balance.toLocaleString('th-TH')}${aSym} &nbsp;·&nbsp; ${a.currency}${a.mt5Login ? ` &nbsp;·&nbsp; MT5 #${a.mt5Login}` : ''}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         ${!isActive?`<button class="btn" style="font-size:11px;padding:5px 12px" onclick="switchAccount('${a.id}')">เปลี่ยน</button>`:''}
@@ -3454,6 +3461,22 @@ async function syncMT5() {
       _updateDot('warn', 'Bridge กำลังทำงาน — MT5 ยังไม่ได้เชื่อมต่อ\nเปิด MetaTrader 5 แล้วล็อกอิน');
       _showOpenMT5Prompt();
       return;
+    }
+    const loginStr = status.login != null ? String(status.login) : null;
+    if (loginStr) {
+      const matchedAccount = accounts.find(a => a.mt5Login && String(a.mt5Login) === loginStr);
+      if (matchedAccount && matchedAccount.id !== activeAccountId) {
+        switchAccount(matchedAccount.id);
+      }
+    }
+    if (status.server_tz_offset != null) {
+      const newTz = status.server_tz_offset;
+      if (newTz !== settings.mt5Timezone) {
+        settings.mt5Timezone = newTz;
+        localStorage.setItem('dosho_settings', JSON.stringify(settings));
+        const tzEl = document.getElementById('set-mt5-timezone');
+        if (tzEl) tzEl.value = newTz;
+      }
     }
     const res = await fetch('http://127.0.0.1:5678/sync', { signal: AbortSignal.timeout(15000) });
     if (!res.ok) {
