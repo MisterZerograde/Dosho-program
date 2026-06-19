@@ -988,7 +988,7 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
           </div>
         </div>
         <div class="card" style="margin-top:14px">
-          <div class="card-hd"><span class="card-title">MT5 Bridge</span></div>
+          <div class="card-hd" style="display:flex;align-items:center;justify-content:space-between"><span class="card-title">MT5 Bridge</span><span style="font-size:10px;font-weight:600;color:#059669;background:#05966918;border:1px solid #05966930;border-radius:5px;padding:2px 8px;letter-spacing:.04em">READ-ONLY</span></div>
           <div class="card-bd">
             <div id="bridge-status-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px 14px;border-radius:10px;background:var(--bg2);font-size:13px">
               <span id="bridge-set-dot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;flex-shrink:0;transition:background .3s"></span>
@@ -3433,7 +3433,8 @@ function _showOpenMT5Prompt() {
       </div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.6">
         Dosho <b style="color:var(--text)">ไม่สามารถเปิด MetaTrader 5 ให้อัตโนมัติได้</b><br><br>
-        กรุณาเปิด <b style="color:var(--text)">MetaTrader 5</b> และล็อกอินด้วยตัวเอง แล้วกด Sync MT5 ใหม่อีกครั้ง
+        กรุณาเปิด <b style="color:var(--text)">MetaTrader 5</b> และล็อกอินด้วยตัวเอง แล้วกด Sync MT5 ใหม่อีกครั้ง<br><br>
+        <span style="font-size:11px;color:var(--text3)">Dosho เชื่อมต่อ MT5 เพื่อ<b style="color:var(--text2)">ดึงข้อมูล History เท่านั้น</b> — ไม่มีการส่งคำสั่งเทรดหรือแก้ไขข้อมูลใดๆ</span>
       </div>
       <button onclick="document.getElementById('_mt5-open-modal').remove()" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--purple);color:#fff;cursor:pointer;font-size:13px;font-weight:600">ตกลง</button>
     </div>`;
