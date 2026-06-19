@@ -4,6 +4,7 @@ import re
 import json
 import threading
 import time
+import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -116,8 +117,34 @@ def _deals_to_trades(deals):
     result.sort(key=lambda t: t["openDt"])
     return result
 
+def _is_mt5_running():
+    try:
+        out = subprocess.run(
+            ['tasklist', '/FI', 'IMAGENAME eq terminal64.exe', '/FO', 'CSV', '/NH'],
+            capture_output=True, text=True, timeout=3
+        ).stdout
+        if 'terminal64.exe' in out.lower():
+            return True
+        out2 = subprocess.run(
+            ['tasklist', '/FI', 'IMAGENAME eq terminal.exe', '/FO', 'CSV', '/NH'],
+            capture_output=True, text=True, timeout=3
+        ).stdout
+        return 'terminal.exe' in out2.lower()
+    except Exception:
+        return False
+
 def _fetch_and_cache():
     global _status
+    if not _is_mt5_running():
+        with _mt5_lock:
+            _status = {
+                "connected": False, "login": None, "server": None,
+                "name": None, "company": None, "trade_mode": None, "leverage": None,
+                "balance": None, "equity": None, "profit": None,
+                "margin": None, "margin_free": None, "margin_level": None,
+                "currency": None,
+            }
+        return False, "MT5 ไม่ได้เชื่อมต่อ"
     days = _config.get("period_days", 30)
     with _mt5_lock:
         if not mt5.initialize():
