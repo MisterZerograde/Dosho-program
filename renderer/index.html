@@ -3330,7 +3330,6 @@ async function checkMT5Bridge() {
     _updateBridgeSettings(d);
   } catch {
     _updateDot('offline', 'MT5 Bridge ออฟไลน์\nคลิกเพื่อดูวิธีติดตั้ง');
-    if (!window.__ELECTRON__) _showMT5SetupModal();
     _updateBridgeSettings(null);
   }
 }
