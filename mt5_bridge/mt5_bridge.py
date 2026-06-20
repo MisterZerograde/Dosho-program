@@ -27,7 +27,7 @@ except ImportError:
 import tkinter as tk
 from tkinter import ttk
 
-VERSION = "2.0"
+VERSION = "2.1"
 PORT    = 5678
 
 CONFIG_PATH = Path(os.environ.get("APPDATA", "~")).expanduser() / "MT5Bridge" / "config.json"
@@ -73,7 +73,7 @@ def _save_config():
 def _strip_suffix(symbol):
     return re.sub(r"\.[a-zA-Z]+\d*$", "", symbol).upper()
 
-def _deals_to_trades(deals, tz_offset_h=0):
+def _deals_to_trades(deals, tz_offset_h=0, close_cutoff_ts=None):
     def _fmt(unix_ts):
         dt = datetime.utcfromtimestamp(unix_ts) + timedelta(hours=tz_offset_h)
         return dt.strftime("%Y-%m-%dT%H:%M")
@@ -96,13 +96,21 @@ def _deals_to_trades(deals, tz_offset_h=0):
     for pid, pos in positions.items():
         if not pos["opens"] or not pos["closes"]:
             continue
-        open_d = pos["opens"][0]
+        opens  = pos["opens"]
         closes = pos["closes"]
-        all_deals = pos["opens"] + closes
+        last_close = max(closes, key=lambda d: d.time)
+        if close_cutoff_ts is not None and last_close.time < close_cutoff_ts:
+            continue
+        open_d    = opens[0]
+        all_deals = opens + closes
         total_comm = round(sum(d.commission for d in all_deals), 2)
         total_swap = round(sum(d.swap for d in all_deals), 2)
-        pnl        = round(sum(d.profit for d in closes) + total_comm + total_swap, 2)
-        last_close = max(closes, key=lambda d: d.time)
+        pnl        = round(
+            sum(d.profit for d in closes) +
+            sum(d.commission for d in all_deals) +
+            sum(d.swap for d in all_deals),
+            2
+        )
         result.append({
             "id":        str(pid),
             "symbol":    _strip_suffix(open_d.symbol),
@@ -171,6 +179,9 @@ def _fetch_and_cache():
             }
         return False, "MT5 ไม่ได้เชื่อมต่อ"
     days = _config.get("period_days", 30)
+    fetch_days = min(days * 3, 1095)
+    close_cutoff_ts = time.time() - days * 86400
+    now_utc = datetime.utcnow()
     with _mt5_lock:
         if not mt5.initialize():
             mt5.shutdown()
@@ -178,7 +189,7 @@ def _fetch_and_cache():
             return False, "MT5 ไม่ได้เชื่อมต่อ"
         try:
             info      = mt5.account_info()
-            deals     = mt5.history_deals_get(datetime.now() - timedelta(days=days), datetime.now())
+            deals     = mt5.history_deals_get(now_utc - timedelta(days=fetch_days), now_utc)
             term_info = mt5.terminal_info()
         finally:
             mt5.shutdown()
@@ -211,7 +222,7 @@ def _fetch_and_cache():
             "server_tz_offset": server_tz_offset,
         }
     tz = server_tz_offset if server_tz_offset is not None else 0
-    trades = _deals_to_trades(deals, tz_offset_h=tz) if deals is not None else []
+    trades = _deals_to_trades(deals, tz_offset_h=tz, close_cutoff_ts=close_cutoff_ts) if deals is not None else []
 
     with _cache_lock:
         _cache["trades"]    = trades
