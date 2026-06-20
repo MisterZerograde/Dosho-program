@@ -3492,22 +3492,14 @@ async function syncMT5() {
     const mode = await _showImportModeModal();
     if (!mode) return;
     let added = 0;
+    let suggestedBalance = null;
     if (mode === 'replace') {
       trades.length = 0;
       imported.forEach(t => { trades.push({ ...t, source: 'sync' }); added++; });
       if (status && status.balance != null) {
         const totalPnl = imported.reduce((s, t) => s + (t.pnl || 0), 0);
-        const suggested = Math.round((status.balance - totalPnl) * 100) / 100;
-        const cur = status.currency || settings.currency;
-        if (suggested > 0) {
-          settings.balance = suggested;
-          settings.currency = cur;
-          localStorage.setItem('dosho_settings', JSON.stringify(settings));
-          const a = accounts.find(x => x.id === activeAccountId);
-          if (a) { a.balance = suggested; a.currency = cur; persistAccounts(); }
-          const balEl = document.getElementById('set-balance');
-          if (balEl) balEl.value = suggested;
-        }
+        const s = Math.round((status.balance - totalPnl) * 100) / 100;
+        if (s > 0) suggestedBalance = s;
       }
     } else {
       imported.forEach(t => {
@@ -3525,9 +3517,10 @@ async function syncMT5() {
     persist();
     renderDashboard(); renderCalendar(); renderTradeTable(); renderReports();
     await checkMT5Bridge();
+    const balHint = suggestedBalance != null ? `  •  แนะนำ เงินทุนเริ่มต้น: ${suggestedBalance.toLocaleString()}` : '';
     _showSyncToast(
       mode === 'replace'
-        ? `✓ แทนที่สำเร็จ! นำเข้า ${added} รายการ`
+        ? `✓ แทนที่สำเร็จ! นำเข้า ${added} รายการ${balHint}`
         : added > 0
           ? `✓ เพิ่ม ${added} รายการใหม่  (ข้าม ${imported.length - added} ซ้ำ)`
           : `✓ ข้อมูลอัปเดตแล้ว  ไม่มีรายการใหม่`,
