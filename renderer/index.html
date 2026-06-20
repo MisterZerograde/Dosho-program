@@ -1645,7 +1645,7 @@ function calcStats(ts) {
   const losses = ts.filter(t => t.pnl < 0);
   const netPnl = +pnls.reduce((s,v) => s+v, 0).toFixed(2);
   const grossWin = +wins.reduce((s,t) => s+t.pnl, 0).toFixed(2);
-  const grossLoss = +Math.abs(losses.reduce((s,t) => s+t.pnl, 0)).toFixed(2);
+  const grossLoss = +(grossWin - netPnl).toFixed(2);
   const pf = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : null;
   const wr = ts.length ? (wins.length / ts.length) * 100 : 0;
   const avgWin = wins.length ? grossWin / wins.length : 0;
@@ -1862,7 +1862,7 @@ function renderStatsSummary() {
 
 /* ═══ FORMULA MODAL ═══ */
 function openFormulaModal(type) {
-  const s = calcStats(trades);
+  const s = calcStats(viewTrades());
   const cur = getCurrencySymbol();
   const fmt = v => v !== null && v !== undefined ? Math.abs(v).toFixed(getPnlDecimals()) + cur : '—';
   const fmtN = v => v !== null && v !== undefined ? (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(getPnlDecimals()) + cur : '—';
