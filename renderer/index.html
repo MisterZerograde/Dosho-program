@@ -1643,9 +1643,9 @@ function calcStats(ts) {
   const pnls = ts.map(t => t.pnl);
   const wins = ts.filter(t => t.pnl > 0);
   const losses = ts.filter(t => t.pnl < 0);
-  const netPnl = pnls.reduce((s,v) => s+v, 0);
-  const grossWin = wins.reduce((s,t) => s+t.pnl, 0);
-  const grossLoss = Math.abs(losses.reduce((s,t) => s+t.pnl, 0));
+  const netPnl = +pnls.reduce((s,v) => s+v, 0).toFixed(2);
+  const grossWin = +wins.reduce((s,t) => s+t.pnl, 0).toFixed(2);
+  const grossLoss = +Math.abs(losses.reduce((s,t) => s+t.pnl, 0)).toFixed(2);
   const pf = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : null;
   const wr = ts.length ? (wins.length / ts.length) * 100 : 0;
   const avgWin = wins.length ? grossWin / wins.length : 0;
@@ -1657,8 +1657,8 @@ function calcStats(ts) {
   const expectedPayoff = netPnl / ts.length;
 
   // Long / Short breakdown
-  const longs  = ts.filter(t => t.type === 'BUY');
-  const shorts = ts.filter(t => t.type === 'SELL');
+  const longs  = ts.filter(t => t.direction === 'BUY');
+  const shorts = ts.filter(t => t.direction === 'SELL');
   const longWR  = longs.length  ? longs.filter(t => t.pnl > 0).length  / longs.length  * 100 : null;
   const shortWR = shorts.length ? shorts.filter(t => t.pnl > 0).length / shorts.length * 100 : null;
 
