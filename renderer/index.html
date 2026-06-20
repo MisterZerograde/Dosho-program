@@ -3391,11 +3391,7 @@ function _showVerifyModal(mt5Data) {
 
   const findLocal = mt5t => {
     if (localById.has(mt5t.id)) return localById.get(mt5t.id);
-    return localInPeriod.find(t =>
-      t.symbol === mt5t.symbol &&
-      t.openDt === mt5t.openDt &&
-      Math.abs(t.pnl - mt5t.pnl) <= 0.01
-    ) || null;
+    return localInPeriod.find(t => t.symbol === mt5t.symbol && t.openDt === mt5t.openDt) || null;
   };
 
   const missing    = mt5Trades.filter(t => !findLocal(t));
@@ -3637,13 +3633,13 @@ async function syncMT5() {
       }
     } else {
       imported.forEach(t => {
-        const existingIdx = t.id ? trades.findIndex(x => x.id === t.id) : -1;
+        let existingIdx = t.id ? trades.findIndex(x => x.id === t.id) : -1;
+        if (existingIdx < 0) existingIdx = trades.findIndex(x => x.symbol === t.symbol && x.openDt === t.openDt);
         if (existingIdx >= 0) {
           const old = trades[existingIdx];
-          trades[existingIdx] = { ...t, source: 'sync', notes: old.notes || t.notes, tags: old.tags || t.tags };
+          trades[existingIdx] = { ...t, id: t.id || old.id, source: 'sync', notes: old.notes || t.notes, tags: old.tags || t.tags };
         } else {
-          const dup = trades.some(x => x.openDt === t.openDt && x.symbol === t.symbol && Math.abs(x.pnl - t.pnl) < 0.01);
-          if (!dup) { trades.push({ ...t, source: 'sync' }); added++; }
+          trades.push({ ...t, source: 'sync' }); added++;
         }
       });
     }
@@ -3886,14 +3882,14 @@ window._bgSyncTrades = function(imported) {
   if (!Array.isArray(imported) || !imported.length) return 0;
   let added = 0;
   imported.forEach(t => {
-    const existingIdx = t.id ? trades.findIndex(x => x.id === t.id) : -1;
+    let existingIdx = t.id ? trades.findIndex(x => x.id === t.id) : -1;
+    if (existingIdx < 0) existingIdx = trades.findIndex(x => x.symbol === t.symbol && x.openDt === t.openDt);
     if (existingIdx >= 0) {
       const old = trades[existingIdx];
-      trades[existingIdx] = { ...t, source: 'sync', notes: old.notes || t.notes, tags: old.tags || t.tags };
+      trades[existingIdx] = { ...t, id: t.id || old.id, source: 'sync', notes: old.notes || t.notes, tags: old.tags || t.tags };
       added++;
     } else {
-      const dup = trades.some(x => x.openDt === t.openDt && x.symbol === t.symbol && Math.abs(x.pnl - t.pnl) < 0.01);
-      if (!dup) { trades.push({ ...t, source: 'sync' }); added++; }
+      trades.push({ ...t, source: 'sync' }); added++;
     }
   });
   if (added > 0) {
