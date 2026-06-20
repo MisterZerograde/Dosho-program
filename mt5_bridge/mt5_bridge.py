@@ -119,15 +119,16 @@ def _deals_to_trades(deals):
 
 def _is_mt5_running():
     try:
+        flags = subprocess.CREATE_NO_WINDOW
         out = subprocess.run(
             ['tasklist', '/FI', 'IMAGENAME eq terminal64.exe', '/FO', 'CSV', '/NH'],
-            capture_output=True, text=True, timeout=3
+            capture_output=True, text=True, timeout=3, creationflags=flags
         ).stdout
         if 'terminal64.exe' in out.lower():
             return True
         out2 = subprocess.run(
             ['tasklist', '/FI', 'IMAGENAME eq terminal.exe', '/FO', 'CSV', '/NH'],
-            capture_output=True, text=True, timeout=3
+            capture_output=True, text=True, timeout=3, creationflags=flags
         ).stdout
         return 'terminal.exe' in out2.lower()
     except Exception:
