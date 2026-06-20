@@ -1300,7 +1300,10 @@ let dashPeriod = 0;
 function viewTrades() {
   if (!dashPeriod) return trades;
   const cutoff = Date.now() - dashPeriod * 86400000;
-  return trades.filter(t => getTradeTimeMs(t.openDt) >= cutoff);
+  return trades.filter(t => {
+    const ms = t.closeDt ? getTradeTimeMs(t.closeDt) : getTradeTimeMs(t.openDt);
+    return ms >= cutoff;
+  });
 }
 function setDashPeriod(days) {
   dashPeriod = days;
@@ -3492,10 +3495,30 @@ async function syncMT5() {
     if (mode === 'replace') {
       trades.length = 0;
       imported.forEach(t => { trades.push({ ...t, source: 'sync' }); added++; });
+      if (status && status.balance != null) {
+        const totalPnl = imported.reduce((s, t) => s + (t.pnl || 0), 0);
+        const suggested = Math.round((status.balance - totalPnl) * 100) / 100;
+        const cur = status.currency || settings.currency;
+        if (suggested > 0) {
+          settings.balance = suggested;
+          settings.currency = cur;
+          localStorage.setItem('dosho_settings', JSON.stringify(settings));
+          const a = accounts.find(x => x.id === activeAccountId);
+          if (a) { a.balance = suggested; a.currency = cur; persistAccounts(); }
+          const balEl = document.getElementById('set-balance');
+          if (balEl) balEl.value = suggested;
+        }
+      }
     } else {
       imported.forEach(t => {
-        const dup = trades.some(x => x.openDt === t.openDt && x.symbol === t.symbol && Math.abs(x.pnl - t.pnl) < 0.01);
-        if (!dup) { trades.push({ ...t, source: 'sync' }); added++; }
+        const existingIdx = t.id ? trades.findIndex(x => x.id === t.id) : -1;
+        if (existingIdx >= 0) {
+          const old = trades[existingIdx];
+          trades[existingIdx] = { ...t, source: 'sync', notes: old.notes || t.notes, tags: old.tags || t.tags };
+        } else {
+          const dup = trades.some(x => x.openDt === t.openDt && x.symbol === t.symbol && Math.abs(x.pnl - t.pnl) < 0.01);
+          if (!dup) { trades.push({ ...t, source: 'sync' }); added++; }
+        }
       });
     }
     trades.sort((a, b) => getTradeTimeMs(a.openDt) - getTradeTimeMs(b.openDt));
@@ -3736,10 +3759,15 @@ window._bgSyncTrades = function(imported) {
   if (!Array.isArray(imported) || !imported.length) return 0;
   let added = 0;
   imported.forEach(t => {
-    const dup = trades.some(x =>
-      x.openDt === t.openDt && x.symbol === t.symbol && Math.abs(x.pnl - t.pnl) < 0.01
-    );
-    if (!dup) { trades.push({ ...t, source: 'sync' }); added++; }
+    const existingIdx = t.id ? trades.findIndex(x => x.id === t.id) : -1;
+    if (existingIdx >= 0) {
+      const old = trades[existingIdx];
+      trades[existingIdx] = { ...t, source: 'sync', notes: old.notes || t.notes, tags: old.tags || t.tags };
+      added++;
+    } else {
+      const dup = trades.some(x => x.openDt === t.openDt && x.symbol === t.symbol && Math.abs(x.pnl - t.pnl) < 0.01);
+      if (!dup) { trades.push({ ...t, source: 'sync' }); added++; }
+    }
   });
   if (added > 0) {
     trades.sort((a, b) => getTradeTimeMs(a.openDt) - getTradeTimeMs(b.openDt));
