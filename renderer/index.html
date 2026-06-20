@@ -3632,6 +3632,7 @@ async function syncMT5() {
         if (s > 0) suggestedBalance = s;
       }
     } else {
+      _removeDuplicateTrades();
       imported.forEach(t => {
         let existingIdx = t.id ? trades.findIndex(x => x.id === t.id) : -1;
         if (existingIdx < 0) existingIdx = trades.findIndex(x => x.symbol === t.symbol && x.openDt === t.openDt);
@@ -3878,8 +3879,33 @@ function handleBackupImport(e) {
   reader.readAsText(file, 'UTF-8');
 }
 
+function _removeDuplicateTrades() {
+  const seen = new Map();
+  const deduped = [];
+  for (const t of trades) {
+    const key = t.symbol + '|' + t.openDt;
+    if (!seen.has(key)) {
+      seen.set(key, deduped.length);
+      deduped.push(t);
+    } else {
+      const existingIdx = seen.get(key);
+      const existing = deduped[existingIdx];
+      const tIsNumeric = t.id && /^\d+$/.test(String(t.id));
+      const exIsNumeric = existing.id && /^\d+$/.test(String(existing.id));
+      if (tIsNumeric && !exIsNumeric) deduped[existingIdx] = t;
+    }
+  }
+  if (deduped.length !== trades.length) {
+    trades.length = 0;
+    deduped.forEach(t => trades.push(t));
+    return true;
+  }
+  return false;
+}
+
 window._bgSyncTrades = function(imported) {
   if (!Array.isArray(imported) || !imported.length) return 0;
+  _removeDuplicateTrades();
   let added = 0;
   imported.forEach(t => {
     let existingIdx = t.id ? trades.findIndex(x => x.id === t.id) : -1;
