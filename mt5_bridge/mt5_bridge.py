@@ -73,7 +73,11 @@ def _save_config():
 def _strip_suffix(symbol):
     return re.sub(r"\.[a-zA-Z]+\d*$", "", symbol).upper()
 
-def _deals_to_trades(deals):
+def _deals_to_trades(deals, tz_offset_h=0):
+    def _fmt(unix_ts):
+        dt = datetime.utcfromtimestamp(unix_ts) + timedelta(hours=tz_offset_h)
+        return dt.strftime("%Y-%m-%dT%H:%M")
+
     positions = {}
     for deal in deals:
         if deal.type not in (mt5.DEAL_TYPE_BUY, mt5.DEAL_TYPE_SELL):
@@ -85,7 +89,7 @@ def _deals_to_trades(deals):
             positions[pid] = {"opens": [], "closes": []}
         if deal.entry == mt5.DEAL_ENTRY_IN:
             positions[pid]["opens"].append(deal)
-        elif deal.entry == mt5.DEAL_ENTRY_OUT:
+        elif deal.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_INOUT):
             positions[pid]["closes"].append(deal)
 
     result = []
@@ -94,22 +98,23 @@ def _deals_to_trades(deals):
             continue
         open_d = pos["opens"][0]
         closes = pos["closes"]
-        total_comm = sum(d.commission for d in pos["opens"]) + sum(d.commission for d in closes)
-        total_swap = sum(d.swap for d in closes)
+        all_deals = pos["opens"] + closes
+        total_comm = round(sum(d.commission for d in all_deals), 2)
+        total_swap = round(sum(d.swap for d in all_deals), 2)
         pnl        = round(sum(d.profit for d in closes) + total_comm + total_swap, 2)
         last_close = max(closes, key=lambda d: d.time)
         result.append({
             "id":        str(pid),
             "symbol":    _strip_suffix(open_d.symbol),
             "direction": "BUY" if open_d.type == mt5.DEAL_TYPE_BUY else "SELL",
-            "openDt":    datetime.fromtimestamp(open_d.time, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M"),
-            "closeDt":   datetime.fromtimestamp(last_close.time, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M"),
+            "openDt":    _fmt(open_d.time),
+            "closeDt":   _fmt(last_close.time),
             "openPx":    round(open_d.price, 5),
             "closePx":   round(last_close.price, 5),
             "volume":    open_d.volume,
             "pnl":       pnl,
-            "commission":round(total_comm, 2),
-            "swap":      round(total_swap, 2),
+            "commission":total_comm,
+            "swap":      total_swap,
             "tag":       "",
             "notes":     last_close.comment or "",
         })
@@ -205,7 +210,8 @@ def _fetch_and_cache():
             "currency":        info.currency,
             "server_tz_offset": server_tz_offset,
         }
-    trades = _deals_to_trades(deals) if deals is not None else []
+    tz = server_tz_offset if server_tz_offset is not None else 0
+    trades = _deals_to_trades(deals, tz_offset_h=tz) if deals is not None else []
 
     with _cache_lock:
         _cache["trades"]    = trades
