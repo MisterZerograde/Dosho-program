@@ -1644,8 +1644,8 @@ function calcStats(ts) {
   const wins = ts.filter(t => t.pnl > 0);
   const losses = ts.filter(t => t.pnl < 0);
   const netPnl = +pnls.reduce((s,v) => s+v, 0).toFixed(2);
-  const grossWin = +wins.reduce((s,t) => s+t.pnl, 0).toFixed(2);
-  const grossLoss = +(grossWin - netPnl).toFixed(2);
+  const grossWin = wins.reduce((s,t) => s+t.pnl, 0);
+  const grossLoss = Math.abs(losses.reduce((s,t) => s+t.pnl, 0));
   const pf = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : null;
   const wr = ts.length ? (wins.length / ts.length) * 100 : 0;
   const avgWin = wins.length ? grossWin / wins.length : 0;
@@ -3387,12 +3387,21 @@ function _showVerifyModal(mt5Data) {
     return ms >= cutoff;
   });
 
-  const localMap = new Map(localInPeriod.filter(t => t.id).map(t => [t.id, t]));
+  const localById = new Map(localInPeriod.filter(t => t.id).map(t => [t.id, t]));
 
-  const missing    = mt5Trades.filter(t => t.id && !localMap.has(t.id));
+  const findLocal = mt5t => {
+    if (localById.has(mt5t.id)) return localById.get(mt5t.id);
+    return localInPeriod.find(t =>
+      t.symbol === mt5t.symbol &&
+      t.openDt === mt5t.openDt &&
+      Math.abs(t.pnl - mt5t.pnl) <= 0.01
+    ) || null;
+  };
+
+  const missing    = mt5Trades.filter(t => !findLocal(t));
   const mismatched = mt5Trades.filter(t => {
-    if (!t.id || !localMap.has(t.id)) return false;
-    return Math.abs(localMap.get(t.id).pnl - t.pnl) > 0.01;
+    const lc = findLocal(t);
+    return lc ? Math.abs(lc.pnl - t.pnl) > 0.01 : false;
   });
 
   const mt5NetPnl   = mt5Trades.reduce((s, t) => s + (t.pnl || 0), 0);
@@ -3437,7 +3446,7 @@ function _showVerifyModal(mt5Data) {
           <span style="min-width:76px;text-align:right">สมุด</span>
           <span style="min-width:60px;text-align:right">ต่างกัน</span>
         </div>
-        ${mismatched.map(t => { const lc = localMap.get(t.id); const df = t.pnl - lc.pnl; return `
+        ${mismatched.map(t => { const lc = findLocal(t); const df = t.pnl - lc.pnl; return `
           <div style="display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border2);font-size:12px;align-items:center">
             <span style="color:var(--text3);min-width:74px">${(t.closeDt || t.openDt).slice(0,10)}</span>
             <span style="color:var(--text);font-weight:600;flex:1">${t.symbol}</span>
