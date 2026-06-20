@@ -1041,6 +1041,9 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
                 <span style="font-size:13px;color:var(--text2)">เปิดอัตโนมัติเมื่อเริ่ม Windows</span>
               </label>
             </div>
+            <div id="bridge-verify-row" style="display:none;margin-bottom:14px">
+              <button id="btn-verify-mt5" class="btn" style="width:100%;justify-content:center" onclick="verifyMT5Data()">ตรวจสอบข้อมูล</button>
+            </div>
             <div id="bridge-download-row" style="display:none">
               <a href="https://github.com/MisterZerograde/Dosho-app/releases/download/latest/mt5_bridge.exe"
                  class="btn" style="width:100%;justify-content:center;text-decoration:none;display:flex">
@@ -3243,7 +3246,8 @@ function _updateDot(state, title) {
 function _updateBridgeSettings(d) {
   const dot   = document.getElementById('bridge-set-dot');
   const info  = document.getElementById('bridge-set-info');
-  const dlRow = document.getElementById('bridge-download-row');
+  const dlRow     = document.getElementById('bridge-download-row');
+  const verifyRow = document.getElementById('bridge-verify-row');
   const perEl = document.getElementById('bridge-period');
   const intEl = document.getElementById('bridge-interval');
   const stEl  = document.getElementById('bridge-startup');
@@ -3258,6 +3262,7 @@ function _updateBridgeSettings(d) {
       ? `#${d.login} @ ${d.server}${bal}${sync}`
       : `Bridge พร้อม — MT5 ยังไม่ได้เชื่อมต่อ${sync}`;
     if (dlRow) dlRow.style.display = 'none';
+    if (verifyRow) verifyRow.style.display = d.connected ? '' : 'none';
     [perEl, intEl, stEl].forEach(el => { if (el) el.disabled = false; });
     if (perEl) perEl.value = d.config?.period_days   ?? 30;
     if (intEl) intEl.value = d.config?.interval_secs ?? 0;
@@ -3311,6 +3316,7 @@ function _updateBridgeSettings(d) {
       info.textContent = 'Bridge ออฟไลน์ — ดาวน์โหลดและเปิด mt5_bridge.exe';
       if (dlRow) dlRow.style.display = 'block';
     }
+    if (verifyRow) verifyRow.style.display = 'none';
     [perEl, intEl, stEl].forEach(el => { if (el) el.disabled = true; });
     _bridgeNextSyncAt = null;
     _bridgeIntervalSecs = 0;
@@ -3351,6 +3357,125 @@ async function setBridgeStartup(enable) {
   try { await fetch('http://127.0.0.1:5678/startup', { method: 'POST',
     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enable }) }); }
   catch {}
+}
+
+async function verifyMT5Data() {
+  const btn = document.getElementById('btn-verify-mt5');
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ...'; }
+  try {
+    const res = await fetch('http://127.0.0.1:5678/verify', { signal: AbortSignal.timeout(30000) });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
+    const d = await res.json();
+    _showVerifyModal(d);
+  } catch (e) {
+    _showSyncToast('✗ ตรวจสอบไม่ได้: E003', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'ตรวจสอบข้อมูล'; }
+  }
+}
+
+function _showVerifyModal(mt5Data) {
+  const existing = document.getElementById('_verify-modal');
+  if (existing) existing.remove();
+
+  const mt5Trades  = mt5Data.trades || [];
+  const periodDays = mt5Data.period_days || 30;
+  const cutoff     = Date.now() - periodDays * 86400000;
+
+  const localInPeriod = trades.filter(t => {
+    const ms = t.closeDt ? getTradeTimeMs(t.closeDt) : getTradeTimeMs(t.openDt);
+    return ms >= cutoff;
+  });
+
+  const localMap = new Map(localInPeriod.filter(t => t.id).map(t => [t.id, t]));
+
+  const missing    = mt5Trades.filter(t => t.id && !localMap.has(t.id));
+  const mismatched = mt5Trades.filter(t => {
+    if (!t.id || !localMap.has(t.id)) return false;
+    return Math.abs(localMap.get(t.id).pnl - t.pnl) > 0.01;
+  });
+
+  const mt5NetPnl   = mt5Trades.reduce((s, t) => s + (t.pnl || 0), 0);
+  const localNetPnl = localInPeriod.reduce((s, t) => s + (t.pnl || 0), 0);
+  const countMatch  = mt5Trades.length === localInPeriod.length;
+  const pnlMatch    = Math.abs(mt5NetPnl - localNetPnl) <= 0.01;
+  const allGood     = !missing.length && !mismatched.length && countMatch && pnlMatch;
+
+  const cur  = mt5Data.currency || settings.currency || '';
+  const fmt2 = v => v != null ? Number(v).toFixed(2) + ' ' + cur : '—';
+  const fmtS = v => (v >= 0 ? '+' : '') + v.toFixed(2) + ' ' + cur;
+  const okI  = `<span style="color:var(--green);font-weight:700">✓</span>`;
+  const errI = `<span style="color:var(--red);font-weight:700">✗</span>`;
+
+  const tRow = (lbl, v1, v2, ok) => `<tr style="border-bottom:1px solid var(--border2)">
+    <td style="padding:8px 0;font-size:12px;color:var(--text2)">${lbl}</td>
+    <td style="padding:8px;text-align:right;font-size:12px;color:var(--text);white-space:nowrap">${v1}</td>
+    <td style="padding:8px;text-align:right;font-size:12px;color:var(--text);white-space:nowrap">${v2}</td>
+    <td style="padding:8px 0;text-align:center;width:28px">${ok ? okI : errI}</td>
+  </tr>`;
+
+  const missingHtml = missing.length ? `
+    <div style="margin-top:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">รายการที่หายไปในสมุด (${missing.length})</div>
+      <div style="background:var(--bg2);border-radius:8px;overflow:hidden">
+        ${missing.map(t => `<div style="display:flex;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border2);font-size:12px;align-items:center">
+          <span style="color:var(--text3);min-width:74px">${(t.closeDt || t.openDt).slice(0,10)}</span>
+          <span style="color:var(--text);font-weight:600;flex:1">${t.symbol}</span>
+          <span style="color:var(--text3);font-size:10px">ID:${t.id}</span>
+          <span style="color:${t.pnl>=0?'var(--green)':'var(--red)'};font-weight:600;min-width:80px;text-align:right">${fmtS(t.pnl)}</span>
+        </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const mismatchedHtml = mismatched.length ? `
+    <div style="margin-top:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">P&L ไม่ตรงกัน (${mismatched.length})</div>
+      <div style="background:var(--bg2);border-radius:8px;overflow:hidden">
+        <div style="display:flex;gap:8px;padding:6px 12px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border2)">
+          <span style="min-width:74px">วันที่</span><span style="flex:1">Symbol</span>
+          <span style="min-width:76px;text-align:right">MT5</span>
+          <span style="min-width:76px;text-align:right">สมุด</span>
+          <span style="min-width:60px;text-align:right">ต่างกัน</span>
+        </div>
+        ${mismatched.map(t => { const lc = localMap.get(t.id); const df = t.pnl - lc.pnl; return `
+          <div style="display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border2);font-size:12px;align-items:center">
+            <span style="color:var(--text3);min-width:74px">${(t.closeDt || t.openDt).slice(0,10)}</span>
+            <span style="color:var(--text);font-weight:600;flex:1">${t.symbol}</span>
+            <span style="color:${t.pnl>=0?'var(--green)':'var(--red)'};min-width:76px;text-align:right">${fmtS(t.pnl)}</span>
+            <span style="color:${lc.pnl>=0?'var(--green)':'var(--red)'};min-width:76px;text-align:right">${fmtS(lc.pnl)}</span>
+            <span style="color:var(--yellow);min-width:60px;text-align:right">${fmtS(df)}</span>
+          </div>`; }).join('')}
+      </div>
+    </div>` : '';
+
+  const ov = document.createElement('div');
+  ov.id = '_verify-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML = `
+    <div style="background:var(--surface);border-radius:16px;padding:24px;max-width:540px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.4)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:17px;font-weight:700">ตรวจสอบข้อมูล MT5</div>
+        <button onclick="document.getElementById('_verify-modal').remove()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:0;line-height:1">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:16px">ช่วงเวลา ${periodDays} วัน  •  MT5 #${mt5Data.login || '—'} @ ${mt5Data.server || '—'}  •  ${cur}</div>
+      ${allGood ? `<div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;color:var(--green);margin-bottom:16px">✓ ข้อมูลตรงกันทั้งหมด</div>` : ''}
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:6px 0;text-align:left;font-size:11px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border)"></th>
+          <th style="padding:6px 8px;text-align:right;font-size:11px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border)">MT5</th>
+          <th style="padding:6px 8px;text-align:right;font-size:11px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border)">สมุด</th>
+          <th style="padding:6px 0;border-bottom:1px solid var(--border);width:28px"></th>
+        </tr></thead>
+        <tbody>
+          ${tRow('จำนวนเทรด', mt5Trades.length + ' รายการ', localInPeriod.length + ' รายการ', countMatch)}
+          ${tRow('กำไร/ขาดทุนสุทธิ', fmt2(mt5NetPnl), fmt2(localNetPnl), pnlMatch)}
+        </tbody>
+      </table>
+      ${missingHtml}${mismatchedHtml}
+      ${!allGood ? `<div style="margin-top:16px"><button onclick="document.getElementById('_verify-modal').remove();syncMT5()" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--purple);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Sync MT5 เพื่ออัปเดต</button></div>` : ''}
+    </div>`;
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
 }
 
 function _showMT5SetupModal() {

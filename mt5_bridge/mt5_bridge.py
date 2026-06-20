@@ -27,7 +27,7 @@ except ImportError:
 import tkinter as tk
 from tkinter import ttk
 
-VERSION = "2.1"
+VERSION = "2.2"
 PORT    = 5678
 
 CONFIG_PATH = Path(os.environ.get("APPDATA", "~")).expanduser() / "MT5Bridge" / "config.json"
@@ -317,6 +317,22 @@ def route_sync():
     with _cache_lock:
         return jsonify({"trades": _cache["trades"], "count": _cache["count"],
                         "synced_at": _cache["synced_at"]})
+
+@app.route("/verify")
+def route_verify():
+    ok, err = _fetch_and_cache()
+    if not ok:
+        return jsonify({"error": err or "ไม่สามารถดึงข้อมูลจาก MT5 ได้"}), 503
+    with _cache_lock:
+        trades_snapshot = list(_cache["trades"])
+    resp = {k: _status.get(k) for k in [
+        "login", "server", "balance", "equity", "profit",
+        "currency", "trade_mode", "name", "company"
+    ]}
+    resp["trades"]      = trades_snapshot
+    resp["period_days"] = _config.get("period_days", 30)
+    resp["count"]       = len(trades_snapshot)
+    return jsonify(resp)
 
 
 # ── Startup registry ──────────────────────────────────────────────────────────
