@@ -4,7 +4,6 @@ import re
 import json
 import threading
 import time
-import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -119,18 +118,38 @@ def _deals_to_trades(deals):
 
 def _is_mt5_running():
     try:
-        flags = subprocess.CREATE_NO_WINDOW
-        out = subprocess.run(
-            ['tasklist', '/FI', 'IMAGENAME eq terminal64.exe', '/FO', 'CSV', '/NH'],
-            capture_output=True, text=True, timeout=3, creationflags=flags
-        ).stdout
-        if 'terminal64.exe' in out.lower():
-            return True
-        out2 = subprocess.run(
-            ['tasklist', '/FI', 'IMAGENAME eq terminal.exe', '/FO', 'CSV', '/NH'],
-            capture_output=True, text=True, timeout=3, creationflags=flags
-        ).stdout
-        return 'terminal.exe' in out2.lower()
+        import ctypes, ctypes.wintypes
+        TH32CS_SNAPPROCESS = 0x00000002
+        class PROCESSENTRY32(ctypes.Structure):
+            _fields_ = [
+                ('dwSize',             ctypes.wintypes.DWORD),
+                ('cntUsage',           ctypes.wintypes.DWORD),
+                ('th32ProcessID',      ctypes.wintypes.DWORD),
+                ('th32DefaultHeapID',  ctypes.c_size_t),
+                ('th32ModuleID',       ctypes.wintypes.DWORD),
+                ('cntThreads',         ctypes.wintypes.DWORD),
+                ('th32ParentProcessID',ctypes.wintypes.DWORD),
+                ('pcPriClassBase',     ctypes.c_long),
+                ('dwFlags',            ctypes.wintypes.DWORD),
+                ('szExeFile',          ctypes.c_char * 260),
+            ]
+        k32 = ctypes.windll.kernel32
+        snap = k32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+        if snap == ctypes.wintypes.HANDLE(-1).value:
+            return False
+        pe = PROCESSENTRY32()
+        pe.dwSize = ctypes.sizeof(PROCESSENTRY32)
+        found = False
+        if k32.Process32First(snap, ctypes.byref(pe)):
+            while True:
+                name = pe.szExeFile.decode('utf-8', errors='ignore').lower()
+                if name in ('terminal64.exe', 'terminal.exe'):
+                    found = True
+                    break
+                if not k32.Process32Next(snap, ctypes.byref(pe)):
+                    break
+        k32.CloseHandle(snap)
+        return found
     except Exception:
         return False
 
