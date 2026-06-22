@@ -3634,8 +3634,7 @@ async function syncMT5() {
     } else {
       _removeDuplicateTrades();
       imported.forEach(t => {
-        let existingIdx = t.id ? trades.findIndex(x => x.id === t.id) : -1;
-        if (existingIdx < 0) existingIdx = trades.findIndex(x => x.symbol === t.symbol && x.openDt === t.openDt);
+        const existingIdx = _findExistingTradeIdx(t);
         if (existingIdx >= 0) {
           const old = trades[existingIdx];
           trades[existingIdx] = { ...t, id: t.id || old.id, source: 'sync', notes: old.notes || t.notes, tags: old.tags || t.tags };
@@ -3879,20 +3878,34 @@ function handleBackupImport(e) {
   reader.readAsText(file, 'UTF-8');
 }
 
+function _isNumericId(id) { return id != null && /^\d+$/.test(String(id)); }
+
+function _findExistingTradeIdx(t) {
+  if (_isNumericId(t.id)) return trades.findIndex(x => String(x.id) === String(t.id));
+  return trades.findIndex(x => x.symbol === t.symbol && x.openDt === t.openDt);
+}
+
 function _removeDuplicateTrades() {
-  const seen = new Map();
+  const numericKeys = new Set();
+  for (const t of trades) {
+    if (_isNumericId(t.id)) numericKeys.add(t.symbol + '|' + t.openDt);
+  }
+  const seenIds = new Set();
+  const seenIdless = new Set();
   const deduped = [];
   for (const t of trades) {
-    const key = t.symbol + '|' + t.openDt;
-    if (!seen.has(key)) {
-      seen.set(key, deduped.length);
+    if (_isNumericId(t.id)) {
+      const id = String(t.id);
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
       deduped.push(t);
     } else {
-      const existingIdx = seen.get(key);
-      const existing = deduped[existingIdx];
-      const tIsNumeric = t.id && /^\d+$/.test(String(t.id));
-      const exIsNumeric = existing.id && /^\d+$/.test(String(existing.id));
-      if (tIsNumeric && !exIsNumeric) deduped[existingIdx] = t;
+      const key = t.symbol + '|' + t.openDt;
+      if (numericKeys.has(key)) continue;
+      const sig = key + '|' + (t.closeDt || '') + '|' + t.pnl;
+      if (seenIdless.has(sig)) continue;
+      seenIdless.add(sig);
+      deduped.push(t);
     }
   }
   if (deduped.length !== trades.length) {
@@ -3908,8 +3921,7 @@ window._bgSyncTrades = function(imported) {
   _removeDuplicateTrades();
   let added = 0;
   imported.forEach(t => {
-    let existingIdx = t.id ? trades.findIndex(x => x.id === t.id) : -1;
-    if (existingIdx < 0) existingIdx = trades.findIndex(x => x.symbol === t.symbol && x.openDt === t.openDt);
+    const existingIdx = _findExistingTradeIdx(t);
     if (existingIdx >= 0) {
       const old = trades[existingIdx];
       trades[existingIdx] = { ...t, id: t.id || old.id, source: 'sync', notes: old.notes || t.notes, tags: old.tags || t.tags };
