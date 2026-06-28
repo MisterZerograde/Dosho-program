@@ -1,0 +1,15 @@
+{
+  "env": { "browser": true, "es2022": true, "node": true },
+  "parserOptions": { "ecmaVersion": 2022 },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-undef": "error",
+    "no-duplicate-case": "error",
+    "no-redeclare": "error",
+    "no-unreachable": "warn",
+    "eqeqeq": ["warn", "smart"]
+  },
+  "globals": {
+    "electronAPI": "readonly"
+  }
+}

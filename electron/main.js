@@ -35,7 +35,10 @@ async function launchBridgeIfNeeded() {
   const exePath = app.isPackaged
     ? path.join(process.resourcesPath, 'mt5_bridge.exe')
     : path.join(__dirname, '..', 'mt5_bridge', 'dist', 'mt5_bridge.exe');
-  if (!fs.existsSync(exePath)) return;
+  if (!fs.existsSync(exePath)) {
+    if (win && rendererReady) win.webContents.send('bridge:missing', {});
+    return;
+  }
   bridgeProc = spawn(exePath, ['--headless'], { detached: false, stdio: 'ignore', windowsHide: true });
   bridgeProc.on('exit', () => { bridgeProc = null; });
 }
@@ -46,11 +49,17 @@ async function doSync() {
   try {
     const data = await httpGet(`${BRIDGE_URL}/sync`, 20000);
     const imported = data.trades || [];
-    await win.webContents.executeJavaScript(
-      `window._bgSyncTrades(${JSON.stringify(imported)})`
+    const fnExists = await win.webContents.executeJavaScript(
+      `typeof window._bgSyncTrades === 'function'`
     );
+    if (fnExists) {
+      await win.webContents.executeJavaScript(
+        `window._bgSyncTrades(${JSON.stringify(imported)})`
+      );
+    }
   } catch (e) {
     console.error('[sync]', e.message);
+    if (win && rendererReady) win.webContents.send('bridge:syncError', { message: e.message });
   }
 }
 
@@ -130,7 +139,7 @@ app.whenReady().then(() => {
     ipcMain.handle('updater:check',   () => autoUpdater.checkForUpdates());
     ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall());
 
-    autoUpdater.checkForUpdates();
+    autoUpdater.checkForUpdates().catch(e => console.error('[updater]', e.message));
   }
 });
 

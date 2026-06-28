@@ -150,6 +150,11 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
 .wk-pnl.r{color:var(--red)}
 .wk-pnl.z{color:var(--text3)}
 .wk-days{font-size:9px;color:var(--text3);margin-top:1px}
+.cal-wr{font-size:9px;font-weight:600;display:block;margin-top:2px}
+.cal-day.profit .cal-wr{color:rgba(16,185,129,.75)}
+.cal-day.loss .cal-wr{color:rgba(239,68,68,.75)}
+.cal-wr-btn{font-size:10px;font-weight:600;padding:3px 7px;border-radius:8px;cursor:pointer;border:1.5px solid var(--border2);background:transparent;color:var(--text3);transition:all .15s;font-family:inherit;white-space:nowrap}
+.cal-wr-btn.active{background:var(--purple);color:#fff;border-color:var(--purple)}
 .wk-row.wk-profit{background:rgba(16,185,129,.07);border-radius:4px}
 .wk-row.wk-loss{background:rgba(239,68,68,.07);border-radius:4px}
 
@@ -685,6 +690,12 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
               <button class="cal-arr" id="cal-next">&#8250;</button>
               <button class="chip chip-gr" style="cursor:pointer;border:none;font-family:inherit;margin-left:6px" onclick="goToThisMonth()">เดือนนี้</button>
               <div class="cal-chips" id="cal-chips" style="margin-left:6px"></div>
+              <div style="display:flex;align-items:center;gap:4px;margin-left:8px">
+                <span style="font-size:10px;color:var(--text3);white-space:nowrap">WR:</span>
+                <button class="cal-wr-btn" data-mode="day" onclick="setCalWrMode('day')">วัน</button>
+                <button class="cal-wr-btn" data-mode="week" onclick="setCalWrMode('week')">สัปดาห์</button>
+                <button class="cal-wr-btn" data-mode="month" onclick="setCalWrMode('month')">เดือน</button>
+              </div>
               <label style="display:flex;align-items:center;gap:6px;margin-left:auto;cursor:pointer;font-size:12px;color:var(--text2);user-select:none" onclick="toggleCalWeekend()">
                 วันหยุด
                 <div id="cal-wknd-sw" style="width:32px;height:18px;border-radius:9px;position:relative;transition:background .2s">
@@ -1288,8 +1299,33 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
 </div>
 
 <script>
+/* ═══ CONSTANTS ═══ */
+const MS_PER_DAY  = 86400000;
+const MS_PER_HOUR = 3600000;
+const PF_ARC_LEN  = 125.66; // visible arc = (300/360) * 2π * 24
+
+/* ═══ SECURITY HELPERS ═══ */
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function parseNum(val) {
+  const n = parseFloat(val);
+  return Number.isFinite(n) ? n : null;
+}
+
+function safeJsonParse(raw, fallback) {
+  try { return JSON.parse(raw) ?? fallback; } catch { return fallback; }
+}
+
 /* ═══ STATE ═══ */
-let accounts = JSON.parse(localStorage.getItem('dosho_accounts') || 'null') || [{id:'default',name:'บัญชีหลัก',balance:10000,currency:'USD',strategy:'ระบบเทรด'}];
+let accounts = safeJsonParse(localStorage.getItem('dosho_accounts'), null) || [{id:'default',name:'บัญชีหลัก',balance:10000,currency:'USD',strategy:'ระบบเทรด'}];
 let activeAccountId = localStorage.getItem('dosho_active_account') || 'default';
 if(!accounts.find(a=>a.id===activeAccountId)) activeAccountId = accounts[0].id;
 
@@ -1298,11 +1334,11 @@ function acctKey(base, id) {
   return aid === 'default' ? base : base + '_' + aid;
 }
 
-let trades = JSON.parse(localStorage.getItem(acctKey('dosho_trades')) || '[]');
+let trades = safeJsonParse(localStorage.getItem(acctKey('dosho_trades')), []);
 let dashPeriod = 0;
 function viewTrades() {
   if (!dashPeriod) return trades;
-  const cutoff = Date.now() - dashPeriod * 86400000;
+  const cutoff = Date.now() - dashPeriod * MS_PER_DAY;
   return trades.filter(t => {
     const ms = t.closeDt ? getTradeTimeMs(t.closeDt) : getTradeTimeMs(t.openDt);
     return ms >= cutoff;
@@ -1313,17 +1349,18 @@ function setDashPeriod(days) {
   document.querySelectorAll('.period-pill').forEach(el => el.classList.toggle('active', +el.dataset.days === days));
   renderDashboard(); renderReports();
 }
-let journal = JSON.parse(localStorage.getItem(acctKey('dosho_journal')) || '{}');
-let settings = JSON.parse(localStorage.getItem('dosho_settings') || '{"name":"Trader","balance":10000,"strategy":"ระบบเทรด","currency":"USD","decimals":2,"mt5Timezone":2,"dayResetHour":0}');
+let journal = safeJsonParse(localStorage.getItem(acctKey('dosho_journal')), {});
+let settings = safeJsonParse(localStorage.getItem('dosho_settings'), {"name":"Trader","balance":10000,"strategy":"ระบบเทรด","currency":"USD","decimals":2,"mt5Timezone":2,"dayResetHour":0});
 // sync settings from active account
 (function(){const a=accounts.find(x=>x.id===activeAccountId);if(a){settings.balance=a.balance;settings.currency=a.currency;settings.strategy=a.strategy;}})();
-let checklist = JSON.parse(localStorage.getItem(acctKey('dosho_checklist')) || '{"entry":[],"exit":[]}');
+let checklist = safeJsonParse(localStorage.getItem(acctKey('dosho_checklist')), {"entry":[],"exit":[]});
 let tradingSystems = [];
 let activeSystemId = '';
 let activeFilter = 'all';
 let editId = null;
 let calYear, calMonth;
-let calShowWeekend = JSON.parse(localStorage.getItem('dosho_cal_weekend') ?? 'true');
+let calShowWeekend = safeJsonParse(localStorage.getItem('dosho_cal_weekend'), true);
+let calWrMode = localStorage.getItem('dosho_cal_wr_mode') || 'month';
 let activeJournalDate = new Date().toISOString().slice(0,10);
 let rptChartInst = null;
 let themeMode = localStorage.getItem('dosho_theme') || 'system';
@@ -1401,7 +1438,7 @@ function toLocalDT(d) {
 }
 function getBrokerNow() {
   const brokerTz = parseFloat(settings.mt5Timezone ?? 2);
-  const diffMs = (7 - brokerTz) * 60 * 60 * 1000;
+  const diffMs = (7 - brokerTz) * MS_PER_HOUR;
   return new Date(Date.now() - diffMs);
 }
 function getBkkDate(dtStr) {
@@ -1420,7 +1457,7 @@ function getBkkDate(dtStr) {
   
   const brokerTz = parseFloat(settings.mt5Timezone ?? 2);
   // True UTC time of trade is: Broker Time - Broker timezone offset
-  const trueUtcMs = Date.UTC(year, month, day, hour, minute) - (brokerTz * 60 * 60 * 1000);
+  const trueUtcMs = Date.UTC(year, month, day, hour, minute) - (brokerTz * MS_PER_HOUR);
   return new Date(trueUtcMs);
 }
 function pad2(n) { return String(n).padStart(2,'0'); }
@@ -1443,7 +1480,7 @@ function getBrokerDateParts(dtStr) {
   if (!dtStr) return null;
   if (!hasExplicitTimezone(dtStr)) return parseBrokerLocalParts(dtStr);
   const brokerTz = parseFloat(settings.mt5Timezone ?? 2);
-  const shifted = new Date(new Date(dtStr).getTime() + brokerTz * 60 * 60 * 1000);
+  const shifted = new Date(new Date(dtStr).getTime() + brokerTz * MS_PER_HOUR);
   return {
     year: shifted.getUTCFullYear(),
     month: shifted.getUTCMonth() + 1,
@@ -1453,27 +1490,17 @@ function getBrokerDateParts(dtStr) {
   };
 }
 function getTradingDayKey(dtStr) {
-  const p = getBrokerDateParts(dtStr);
-  if (!p || [p.year, p.month, p.day].some(Number.isNaN)) return '';
-  return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
-}
-function getTradingMonthKey(dtStr) {
-  const p = getBrokerDateParts(dtStr);
-  if (!p || [p.year, p.month].some(Number.isNaN)) return '';
-  return `${p.year}-${pad2(p.month)}`;
-}
-function getTradingDayKey(dtStr) {
   const utc = getBkkDate(dtStr);
   if (!utc) return '';
   const resetHour = parseInt(settings.dayResetHour ?? 0);
-  const shifted = new Date(utc.getTime() + (7 - resetHour) * 3600000);
+  const shifted = new Date(utc.getTime() + (7 - resetHour) * MS_PER_HOUR);
   return `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth()+1)}-${pad2(shifted.getUTCDate())}`;
 }
 function getTradingMonthKey(dtStr) {
   const utc = getBkkDate(dtStr);
   if (!utc) return '';
   const resetHour = parseInt(settings.dayResetHour ?? 0);
-  const shifted = new Date(utc.getTime() + (7 - resetHour) * 3600000);
+  const shifted = new Date(utc.getTime() + (7 - resetHour) * MS_PER_HOUR);
   return `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth()+1)}`;
 }
 function getTradeTimeMs(dtStr) {
@@ -1601,10 +1628,10 @@ function saveTrade() {
     direction: activeDir,
     openDt: document.getElementById('f-open-dt').value,
     closeDt: document.getElementById('f-close-dt').value,
-    openPx: parseFloat(document.getElementById('f-open-px').value) || null,
-    closePx: parseFloat(document.getElementById('f-close-px').value) || null,
-    volume: parseFloat(document.getElementById('f-volume').value) || null,
-    pnl: parseFloat(pnlRaw),
+    openPx: parseNum(document.getElementById('f-open-px').value),
+    closePx: parseNum(document.getElementById('f-close-px').value),
+    volume: parseNum(document.getElementById('f-volume').value),
+    pnl: parseNum(pnlRaw) ?? 0,
     tag: modalSelectedTags.join(', '),
     notes: document.getElementById('f-notes').value.trim(),
     source: editId ? (trades.find(x => x.id === editId)?.source || 'manual') : 'manual',
@@ -1742,13 +1769,12 @@ function renderDashboard() {
     pnlEl.className = 'kpi-val ' + (s.netPnl >= 0 ? 'g' : 'r');
     document.getElementById('kpi-pnl-sub').textContent = `${dashPeriod ? dashPeriod+'d · ' : ''}${vts.length} รายการ`;
 
-    // Profit factor open-top "C" arc — visible arc length = (300/360) * 2π * 24 ≈ 125.66
     const pfVal = s.pf === Infinity ? 99 : s.pf !== null ? s.pf : 0;
     const pfEl = document.getElementById('kpi-pf');
     pfEl.textContent = s.pf === Infinity ? '∞' : s.pf !== null ? s.pf.toFixed(2) : '—';
     pfEl.className = 'kpi-val ' + (s.pf >= 1 ? 'g' : 'r');
     const pfArc = document.getElementById('pf-arc');
-    const pfArcLen = 125.66;
+    const pfArcLen = PF_ARC_LEN;
     const pfPct = Math.min(pfVal / 5, 1);
     pfArc.style.strokeDasharray = pfArcLen + ' ' + pfArcLen;
     pfArc.style.strokeDashoffset = pfArcLen - pfArcLen * pfPct;
@@ -1812,11 +1838,13 @@ function renderRecentTrades() {
     const timeStr = fmtBKK(t.openDt, {hour:'2-digit', minute:'2-digit'});
     const lotStr = t.volume != null && t.volume !== '' ? t.volume + ' lot' : '';
     const meta = [dateStr, timeStr, lotStr].filter(Boolean).join(' · ');
-    return `<div class="rtrade-row" onclick="openTradeDetail('${t.id}')">
+    const sym = escapeHtml(t.symbol);
+    const dir = t.direction === 'BUY' ? 'BUY' : 'SELL';
+    return `<div class="rtrade-row" onclick="openTradeDetail('${escapeHtml(t.id)}')">
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px">
-          <span class="rtrade-sym">${t.symbol}</span>
-          <span class="ttype ${t.direction === 'BUY' ? 'b' : 's'}">${t.direction}</span>
+          <span class="rtrade-sym">${sym}</span>
+          <span class="ttype ${dir === 'BUY' ? 'b' : 's'}">${dir}</span>
         </div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px">${meta}</div>
       </div>
@@ -1980,9 +2008,10 @@ function renderCalendar() {
     const month = parseInt(mStr, 10) - 1;
     const day = parseInt(dStr, 10);
     if(year === calYear && month === calMonth) {
-      if(!dayMap[day]) dayMap[day] = { pnl: 0, count: 0 };
+      if(!dayMap[day]) dayMap[day] = { pnl: 0, count: 0, wins: 0 };
       dayMap[day].pnl += t.pnl;
       dayMap[day].count++;
+      if(t.pnl > 0) dayMap[day].wins++;
     }
   });
 
@@ -1997,10 +2026,15 @@ function renderCalendar() {
   const ms = calcStats(monthTrades);
   const chipsEl = document.getElementById('cal-chips');
   if(ms) {
-    chipsEl.innerHTML = `<span class="chip chip-g">${ms.wr.toFixed(1)}%</span><span class="chip chip-gr">${monthTrades.length} เทรด</span>`;
+    const wrChip = calWrMode === 'month' ? `<span class="chip chip-g">${ms.wr.toFixed(1)}%</span>` : '';
+    chipsEl.innerHTML = wrChip + `<span class="chip chip-gr">${monthTrades.length} เทรด</span>`;
   } else {
     chipsEl.innerHTML = '';
   }
+  // sync WR mode button active state
+  document.querySelectorAll('.cal-wr-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === calWrMode)
+  );
 
   // build grid
   const firstDay = new Date(calYear, calMonth, 1).getDay();
@@ -2030,9 +2064,11 @@ function renderCalendar() {
         if(d) {
           cell.className = 'cal-day has-trades ' + (d.pnl>=0?'profit':'loss');
           const pnlStr = (d.pnl>=0?'+':'-') + fmtMoney(d.pnl);
+          const dayWr = calWrMode === 'day' && d.count > 0
+            ? `<span class="cal-wr">${Math.round(d.wins/d.count*100)}%WR</span>` : '';
           cell.innerHTML = `<span class="cal-dn">${day}</span>
             <span class="cal-pnl">${pnlStr}</span>
-            <span class="cal-meta">${d.count} เทรด</span>`;
+            <span class="cal-meta">${d.count} เทรด</span>${dayWr}`;
           cell.onclick = () => { cell.classList.remove('pulse'); void cell.offsetWidth; cell.classList.add('pulse'); cell.addEventListener('animationend',()=>cell.classList.remove('pulse'),{once:true}); openDayModal(dateStr); };
         } else {
           cell.className='cal-day';
@@ -2051,14 +2087,20 @@ function renderCalendar() {
   weeks.forEach((week, wi) => {
     const wkDays = week.filter(d => d && dayMap[d]);
     const wkPnl = wkDays.reduce((s,d) => s + dayMap[d].pnl, 0);
+    const wkCount = wkDays.reduce((s,d) => s + dayMap[d].count, 0);
+    const wkWins  = wkDays.reduce((s,d) => s + dayMap[d].wins, 0);
+    const wkWr    = wkCount > 0 ? Math.round(wkWins / wkCount * 100) : null;
     const row = document.createElement('div');
     row.className = 'wk-row' + (wkDays.length > 0 ? (wkPnl > 0 ? ' wk-profit' : wkPnl < 0 ? ' wk-loss' : '') : '');
     if(wkDays.length > 0) { row.style.cursor = 'pointer'; row.onclick = () => openWeekModal(wi, week, dayMap); }
     const cls = wkPnl > 0 ? 'g' : wkPnl < 0 ? 'r' : 'z';
     const pnlStr = wkDays.length > 0 ? (wkPnl>=0?'+':'')+fmtMoneyK(wkPnl) : '0'+getCurrencySymbol();
+    const subLine = calWrMode === 'week' && wkWr !== null
+      ? `<div class="wk-days" style="color:${wkWr>=50?'var(--green)':'var(--red)'}; font-weight:600">${wkWr}%WR</div>`
+      : `<div class="wk-days">${wkDays.length} วัน</div>`;
     row.innerHTML = `<div class="wk-lbl">สัปดาห์ที่ ${wi+1}</div>
       <div class="wk-pnl ${cls}">${pnlStr}</div>
-      <div class="wk-days">${wkDays.length} วัน</div>`;
+      ${subLine}`;
     wkRows.appendChild(row);
   });
 }
@@ -2121,20 +2163,23 @@ function renderTradeTable() {
     const pnlCls = t.pnl >= 0 ? 'pnl-p' : 'pnl-n';
     const rowCls = t.pnl >= 0 ? 'tr-win' : 'tr-loss';
     const _pd = getPnlDecimals(); const pnlStr = (t.pnl>=0?'+':'-') + Math.abs(t.pnl).toLocaleString('th-TH',{minimumFractionDigits:_pd,maximumFractionDigits:_pd}) + getCurrencySymbol();
-    return `<tr class="${rowCls}" style="cursor:pointer" onclick="openTradeDetail('${t.id}')">
-      <td><span class="sym">${t.symbol}</span>${_srcBadge(t.source)}${t.tag?` <span style="margin-left:4px; display:inline-flex; gap:4px">${renderTradeTags(t.tag)}</span>`:''}
+    const sym = escapeHtml(t.symbol);
+    const tid = escapeHtml(t.id);
+    const dir = t.direction === 'BUY' ? 'BUY' : 'SELL';
+    return `<tr class="${rowCls}" style="cursor:pointer" onclick="openTradeDetail('${tid}')">
+      <td><span class="sym">${sym}</span>${_srcBadge(t.source)}${t.tag?` <span style="margin-left:4px; display:inline-flex; gap:4px">${renderTradeTags(t.tag)}</span>`:''}
       </td>
-      <td><span class="ttype ${t.direction==='BUY'?'b':'s'}">${t.direction}</span></td>
+      <td><span class="ttype ${dir==='BUY'?'b':'s'}">${dir}</span></td>
       <td>${dateStr}</td>
       <td>${t.openPx !== null ? t.openPx.toFixed(2) : '—'}</td>
       <td>${t.closePx !== null ? t.closePx.toFixed(2) : '—'}</td>
       <td>${t.volume !== null ? t.volume : '—'}</td>
       <td class="${pnlCls}">${pnlStr}</td>
-      <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text3)">${t.notes || '—'}</td>
+      <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text3)">${escapeHtml(t.notes) || '—'}</td>
       <td>
         <div class="td-actions">
-          <button class="act-btn" onclick="event.stopPropagation();openModal('${t.id}')" title="แก้ไข">✎</button>
-          <button class="act-btn del" onclick="event.stopPropagation();deleteTrade('${t.id}')" title="ลบ">✕</button>
+          <button class="act-btn" onclick="event.stopPropagation();openModal('${tid}')" title="แก้ไข">✎</button>
+          <button class="act-btn del" onclick="event.stopPropagation();deleteTrade('${tid}')" title="ลบ">✕</button>
         </div>
       </td>
     </tr>`;
@@ -2200,9 +2245,10 @@ function renderReports() {
     const pct = Math.abs(d.pnl) / maxAbsPnl * 100;
     const isPos = d.pnl >= 0;
     const wr = d.count ? (d.wins/d.count*100).toFixed(0) : 0;
-    return `<div onclick="openSymbolModal('${sym}')" style="margin-bottom:12px;padding:6px 8px;border-radius:7px;cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+    const symE = escapeHtml(sym);
+    return `<div onclick="openSymbolModal('${symE}')" style="margin-bottom:12px;padding:6px 8px;border-radius:7px;cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:5px">
-        <span style="font-weight:500;color:var(--text);display:flex;align-items:center;gap:5px">${sym}<span style="font-size:10px;color:var(--text3);font-weight:400">↗ ดูรายการเทรด</span></span>
+        <span style="font-weight:500;color:var(--text);display:flex;align-items:center;gap:5px">${symE}<span style="font-size:10px;color:var(--text3);font-weight:400">↗ ดูรายการเทรด</span></span>
         <span style="color:var(--text2)">${d.count} รายการ &nbsp;·&nbsp; ${wr}% WR</span>
         <span style="font-weight:500;color:${isPos?'var(--green)':'var(--red)'}">${isPos?'+':''}${Math.abs(d.pnl).toFixed(_rD)}${getCurrencySymbol()}</span>
       </div>
@@ -2279,7 +2325,7 @@ function loadSystems() {
     try { tradingSystems = JSON.parse(raw); } catch(e) { tradingSystems = []; }
   } else {
     // migrate legacy checklist
-    const legacyCL = JSON.parse(localStorage.getItem(acctKey('dosho_checklist')) || '{"entry":[],"exit":[]}');
+    const legacyCL = safeJsonParse(localStorage.getItem(acctKey('dosho_checklist')), {"entry":[],"exit":[]});
     const defaultName = (settings.strategy && settings.strategy !== 'ระบบเทรด') ? settings.strategy : 'ระบบเทรด';
     tradingSystems = [{ id: 'sys_' + Date.now(), name: defaultName, entry: legacyCL.entry || [], exit: legacyCL.exit || [] }];
     saveSystems();
@@ -2507,7 +2553,7 @@ function renderTradeTags(tagStr) {
   if (!tags.length) return '';
   return tags.map(tag => {
     const color = getTagColor(tag);
-    return `<span class="tag-chip-display" style="background: ${color.bg}; border: 1px solid ${color.border}; color: ${color.text}">${tag}</span>`;
+    return `<span class="tag-chip-display" style="background: ${color.bg}; border: 1px solid ${color.border}; color: ${color.text}">${escapeHtml(tag)}</span>`;
   }).join(' ');
 }
 
@@ -2526,16 +2572,17 @@ function renderModalTags() {
 
   el.innerHTML = displayTags.map(tag => {
     const on = modalSelectedTags.includes(tag);
+    const tagE = escapeHtml(tag);
     if (on) {
       const color = getTagColor(tag);
-      return `<div class="modal-tag-chip selected" 
-                   style="background: ${color.bg}; border: 1.5px solid ${color.border}; color: ${color.text}; opacity: 1;" 
-                   onclick="toggleModalTag('${tag.replace(/'/g, "\\'")}')">
-        ✓ ${tag}
+      return `<div class="modal-tag-chip selected"
+                   style="background: ${color.bg}; border: 1.5px solid ${color.border}; color: ${color.text}; opacity: 1;"
+                   onclick="toggleModalTag('${tagE}')">
+        ✓ ${tagE}
       </div>`;
     } else {
-      return `<div class="modal-tag-chip" onclick="toggleModalTag('${tag.replace(/'/g, "\\'")}')">
-        ${tag}
+      return `<div class="modal-tag-chip" onclick="toggleModalTag('${tagE}')">
+        ${tagE}
       </div>`;
     }
   }).join('');
@@ -2589,8 +2636,9 @@ function filterModalTagDropdown() {
   } else {
     availableTags.forEach(tag => {
       const color = getTagColor(tag);
-      html += `<div class="modal-tag-dropdown-item" onclick="selectDropdownTag('${tag.replace(/'/g, "\\'")}')">
-        <span>${tag}</span>
+      const tagE = escapeHtml(tag);
+      html += `<div class="modal-tag-dropdown-item" onclick="selectDropdownTag('${tagE}')">
+        <span>${tagE}</span>
         <span class="tag-chip-display" style="background: ${color.bg}; border: 1px solid ${color.border}; color: ${color.text}; font-size: 9px; padding: 2px 5px;">ตัวอย่าง</span>
       </div>`;
     });
@@ -2674,9 +2722,10 @@ function renderTags() {
   if (!el) return;
   el.innerHTML = defaultTags.map(tag => {
     const color = getTagColor(tag);
+    const tagE = escapeHtml(tag);
     return `<div class="tag-chip" style="background: ${color.bg}; border: 1px solid ${color.border}; color: ${color.text}; cursor: default;">
-      ${tag}
-      <span onclick="event.stopPropagation();removeTag('${tag.replace(/'/g, "\\'")}')" class="tag-x" title="ลบแท็ก">×</span>
+      ${tagE}
+      <span onclick="event.stopPropagation();removeTag('${tagE}')" class="tag-x" title="ลบแท็ก">×</span>
     </div>`;
   }).join('') + `<input class="tag-add-input" placeholder="+ เพิ่มแท็ก" onkeydown="addTag(event)">`;
 }
@@ -2791,8 +2840,8 @@ function openDayModal(dateStr) {
           const pc = t.pnl >= 0 ? 'pnl-p' : 'pnl-n';
           const ps = (t.pnl>=0?'+':'-') + Math.abs(t.pnl).toLocaleString('th-TH',{minimumFractionDigits:getPnlDecimals(),maximumFractionDigits:getPnlDecimals()}) + getCurrencySymbol();
           return `<tr>
-            <td><span class="sym">${t.symbol}</span></td>
-            <td><span class="ttype ${t.direction==='BUY'?'b':'s'}">${t.direction}</span></td>
+            <td><span class="sym">${escapeHtml(t.symbol)}</span></td>
+            <td><span class="ttype ${t.direction==='BUY'?'b':'s'}">${t.direction === 'BUY' ? 'BUY' : 'SELL'}</span></td>
             <td>${tm}</td>
             <td>${t.openPx !== null ? t.openPx.toFixed(2) : '—'}</td>
             <td>${t.closePx !== null ? t.closePx.toFixed(2) : '—'}</td>
@@ -2808,7 +2857,7 @@ function openDayModal(dateStr) {
         <div style="font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px">บันทึกเพิ่มเติม</div>
         ${dayTrades.filter(t=>t.notes).map(t => `
           <div style="background:var(--surface2);border-radius:7px;padding:8px 11px;margin-bottom:6px;font-size:12px;color:var(--text2);line-height:1.5">
-            <span style="font-weight:500;color:var(--text);margin-right:6px">${t.symbol}</span>${t.notes}
+            <span style="font-weight:500;color:var(--text);margin-right:6px">${escapeHtml(t.symbol)}</span>${escapeHtml(t.notes)}
           </div>`).join('')}
       </div>` : ''}
   `;
@@ -2854,15 +2903,16 @@ function openSymbolModal(sym) {
           const dateStr = fmtBKK(t.openDt, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
           const pc = t.pnl >= 0 ? 'pnl-p' : 'pnl-n';
           const ps = (t.pnl>=0?'+':'-') + Math.abs(t.pnl).toLocaleString('th-TH',{minimumFractionDigits:getPnlDecimals(),maximumFractionDigits:getPnlDecimals()}) + getCurrencySymbol();
+          const dir = t.direction === 'BUY' ? 'BUY' : 'SELL';
           return `<tr>
-            <td><span class="ttype ${t.direction==='BUY'?'b':'s'}">${t.direction}</span></td>
+            <td><span class="ttype ${dir==='BUY'?'b':'s'}">${dir}</span></td>
             <td>${dateStr}</td>
             <td>${t.openPx !== null ? t.openPx.toFixed(2) : '—'}</td>
             <td>${t.closePx !== null ? t.closePx.toFixed(2) : '—'}</td>
             <td>${t.volume !== null ? t.volume : '—'}</td>
             <td class="${pc}">${ps}</td>
             <td style="font-size:11px">${t.tag ? `<span style="display:inline-flex; gap:4px">${renderTradeTags(t.tag)}</span>` : '—'}</td>
-            <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text3);font-size:11px">${t.notes || '—'}</td>
+            <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text3);font-size:11px">${escapeHtml(t.notes) || '—'}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -2878,7 +2928,7 @@ function openTradeDetail(id) {
   const dateStr = fmtBKK(t.openDt, {weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
   const pnlCls = t.pnl >= 0 ? 'var(--green)' : 'var(--red)';
   const pnlStr = (t.pnl >= 0 ? '+' : '−') + Math.abs(t.pnl).toLocaleString('th-TH',{minimumFractionDigits:getPnlDecimals(),maximumFractionDigits:getPnlDecimals()}) + getCurrencySymbol();
-  document.getElementById('day-title').innerHTML = t.symbol + ' — รายละเอียดการเทรด ' + _srcBadge(t.source);
+  document.getElementById('day-title').innerHTML = escapeHtml(t.symbol) + ' — รายละเอียดการเทรด ' + _srcBadge(t.source);
   document.getElementById('day-body').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px">
       <div style="background:var(--surface2);padding:10px 12px;border-radius:8px">
@@ -2905,9 +2955,9 @@ function openTradeDetail(id) {
       </div>
     </div>
     ${t.tag ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:500;color:var(--text3);margin-bottom:6px">แท็ก</div><div style="display:flex;flex-wrap:wrap;gap:5px">${renderTradeTags(t.tag)}</div></div>` : ''}
-    ${t.notes ? `<div style="background:var(--surface2);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--text3);margin-bottom:5px">บันทึกเพิ่มเติม</div><div style="font-size:12px;color:var(--text2);line-height:1.6">${t.notes}</div></div>` : ''}
+    ${t.notes ? `<div style="background:var(--surface2);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--text3);margin-bottom:5px">บันทึกเพิ่มเติม</div><div style="font-size:12px;color:var(--text2);line-height:1.6">${escapeHtml(t.notes)}</div></div>` : ''}
     <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeDayModal();openModal('${t.id}')">แก้ไข</button>
+      <button class="btn btn-ghost" onclick="closeDayModal();openModal('${escapeHtml(t.id)}')">แก้ไข</button>
     </div>
   `;
   document.getElementById('day-overlay').classList.add('open');
@@ -2990,6 +3040,11 @@ function toggleCalWeekend() {
   localStorage.setItem('dosho_cal_weekend', JSON.stringify(calShowWeekend));
   renderCalendar();
 }
+function setCalWrMode(mode) {
+  calWrMode = mode;
+  localStorage.setItem('dosho_cal_wr_mode', mode);
+  renderCalendar();
+}
 
 /* ═══ NAV ═══ */
 const panelTitles = {dashboard:'แดชบอร์ด',trades:'บันทึกการเทรด',journal:'สมุดบันทึกประจำวัน',reports:'รายงานสรุปผล',settings:'การตั้งค่า',accounts:'บัญชีและกลยุทธ์'};
@@ -3016,9 +3071,9 @@ function switchAccount(id) {
   persistAccounts();
   const a = accounts.find(x => x.id === id);
   if(a) { settings.balance = a.balance; settings.currency = a.currency; settings.strategy = a.strategy; }
-  trades = JSON.parse(localStorage.getItem(acctKey('dosho_trades')) || '[]');
-  journal = JSON.parse(localStorage.getItem(acctKey('dosho_journal')) || '{}');
-  checklist = JSON.parse(localStorage.getItem(acctKey('dosho_checklist')) || '{"entry":[],"exit":[]}');
+  trades = safeJsonParse(localStorage.getItem(acctKey('dosho_trades')), []);
+  journal = safeJsonParse(localStorage.getItem(acctKey('dosho_journal')), {});
+  checklist = safeJsonParse(localStorage.getItem(acctKey('dosho_checklist')), {"entry":[],"exit":[]});
   tradingSystems = []; activeSystemId = '';
   const tagPoolRaw = localStorage.getItem(acctKey('dosho_tag_pool'));
   if(tagPoolRaw) {
@@ -3106,8 +3161,8 @@ function renderAccountsList() {
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2);${isActive?'opacity:1':'opacity:.75'}">
       <div style="width:36px;height:36px;border-radius:50%;background:${isActive?'var(--purple-dim)':'var(--surface2)'};border:${isActive?'2px solid var(--purple)':'1px solid var(--border)'};display:flex;align-items:center;justify-content:center;font-weight:700;color:${isActive?'var(--purple2)':'var(--text3)'};flex-shrink:0">${(a.name||'A').charAt(0).toUpperCase()}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${a.name}${isActive?'<span style="font-size:10px;background:var(--purple-dim);color:var(--purple2);padding:1px 7px;border-radius:10px;font-weight:600">ใช้งานอยู่</span>':''}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${a.strategy||'ระบบเทรด'} &nbsp;·&nbsp; ${a.balance.toLocaleString('th-TH')}${aSym} &nbsp;·&nbsp; ${a.currency}${a.mt5Login ? ` &nbsp;·&nbsp; MT5 #${a.mt5Login}` : ''}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${escapeHtml(a.name)}${isActive?'<span style="font-size:10px;background:var(--purple-dim);color:var(--purple2);padding:1px 7px;border-radius:10px;font-weight:600">ใช้งานอยู่</span>':''}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${escapeHtml(a.strategy||'ระบบเทรด')} &nbsp;·&nbsp; ${a.balance.toLocaleString('th-TH')}${aSym} &nbsp;·&nbsp; ${a.currency}${a.mt5Login ? ` &nbsp;·&nbsp; MT5 #${escapeHtml(String(a.mt5Login))}${a.mt5Server ? ' @ ' + escapeHtml(String(a.mt5Server)) : ''}` : ''}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         ${!isActive?`<button class="btn" style="font-size:11px;padding:5px 12px" onclick="switchAccount('${a.id}')">เปลี่ยน</button>`:''}
@@ -3380,7 +3435,7 @@ function _showVerifyModal(mt5Data) {
 
   const mt5Trades  = mt5Data.trades || [];
   const periodDays = mt5Data.period_days || 30;
-  const cutoff     = Date.now() - periodDays * 86400000;
+  const cutoff     = Date.now() - periodDays * MS_PER_DAY;
 
   const localInPeriod = trades.filter(t => {
     const ms = t.closeDt ? getTradeTimeMs(t.closeDt) : getTradeTimeMs(t.openDt);
@@ -3599,8 +3654,23 @@ async function syncMT5() {
     const loginStr = status.login != null ? String(status.login) : null;
     if (loginStr) {
       const matchedAccount = accounts.find(a => a.mt5Login && String(a.mt5Login) === loginStr);
-      if (matchedAccount && matchedAccount.id !== activeAccountId) {
-        switchAccount(matchedAccount.id);
+      if (matchedAccount) {
+        if (matchedAccount.id !== activeAccountId) switchAccount(matchedAccount.id);
+      } else {
+        const newId = 'acct_' + Date.now();
+        const serverStr = status.server || '';
+        const newAcct = {
+          id: newId,
+          name: '#' + loginStr + (serverStr ? ' @ ' + serverStr : ''),
+          mt5Login: loginStr,
+          mt5Server: serverStr,
+          balance: status.balance || 10000,
+          currency: status.currency || 'USD',
+          strategy: 'ระบบเทรด'
+        };
+        accounts.push(newAcct);
+        persistAccounts();
+        switchAccount(newId);
       }
     }
     if (status.server_tz_offset != null) {
@@ -4005,6 +4075,16 @@ if (window.electronAPI?.onUpdateStatus) {
     if (type === 'error') _setUpdateUI('อัปเดตล้มเหลว  Error: E002', '', false, false);
   });
 }
+if (window.electronAPI?.onSyncError) {
+  window.electronAPI.onSyncError(() => {
+    _showSyncToast('✗ Sync ล้มเหลว (main process)  Error: E001', true);
+  });
+}
+if (window.electronAPI?.onBridgeMissing) {
+  window.electronAPI.onBridgeMissing(() => {
+    _showSyncToast('Bridge ไม่พบไฟล์ mt5_bridge.exe', true);
+  });
+}
 
 /* ═══ SHARE MODAL ═══ */
 let shareState = { fromMs: 0, toMs: Date.now(), layout: '16:9', theme: 'dark' };
@@ -4021,7 +4101,7 @@ function _syncShareDateInputs() {
   const f = document.getElementById('share-from-date');
   const t = document.getElementById('share-to-date');
   if (!f || !t) return;
-  const minMs = trades.length ? Math.min(...trades.map(x => getTradeTimeMs(x.openDt))) : Date.now() - 86400000*30;
+  const minMs = trades.length ? Math.min(...trades.map(x => getTradeTimeMs(x.openDt))) : Date.now() - MS_PER_DAY * 30;
   f.value = _toDateStr(shareState.fromMs || minMs);
   t.value = _toDateStr(shareState.toMs);
 }
@@ -4055,7 +4135,7 @@ function closeShareModal() { document.getElementById('share-overlay').classList.
 
 function shareQuickPeriod(days) {
   const now = Date.now();
-  shareState.fromMs = days === 0 ? 0 : now - days * 86400000;
+  shareState.fromMs = days === 0 ? 0 : now - days * MS_PER_DAY;
   shareState.toMs = now;
   _syncShareDateInputs();
   _updateSharePillHighlight(days);
@@ -4095,7 +4175,7 @@ function _buildShareHeatmap(ts) {
     if (!dayPnl[key]) dayPnl[key] = { pnl: 0, count: 0 };
     dayPnl[key].pnl += t.pnl; dayPnl[key].count++;
   });
-  const minMs = shareState.fromMs || (ts.length ? Math.min(...ts.map(x => getTradeTimeMs(x.openDt))) : Date.now() - 86400000*30);
+  const minMs = shareState.fromMs || (ts.length ? Math.min(...ts.map(x => getTradeTimeMs(x.openDt))) : Date.now() - MS_PER_DAY * 30);
   const from = new Date(minMs); from.setHours(0,0,0,0);
   const to   = new Date(shareState.toMs); to.setHours(23,59,59,999);
   const days = [];

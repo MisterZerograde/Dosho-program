@@ -27,7 +27,7 @@ except ImportError:
 import tkinter as tk
 from tkinter import ttk
 
-VERSION = "2.2"
+VERSION = "2.3"
 PORT    = 5678
 
 CONFIG_PATH = Path(os.environ.get("APPDATA", "~")).expanduser() / "MT5Bridge" / "config.json"
@@ -78,53 +78,71 @@ def _deals_to_trades(deals, tz_offset_h=0, close_cutoff_ts=None):
         dt = datetime.utcfromtimestamp(unix_ts) + timedelta(hours=tz_offset_h)
         return dt.strftime("%Y-%m-%dT%H:%M")
 
+    def _money(d):
+        # Full per-deal balance impact, exactly as MT5 accrues it.
+        return ((getattr(d, "profit", 0.0) or 0.0) + (getattr(d, "commission", 0.0) or 0.0)
+                + (getattr(d, "swap", 0.0) or 0.0) + (getattr(d, "fee", 0.0) or 0.0))
+
+    # Group ALL deals by position_id — not just BUY/SELL. Some brokers (ECN / prop firms like
+    # 5%ers) book commission/fees as SEPARATE deals, and recent MT5 builds use a `fee` field the
+    # old code ignored. Summing every money field over every deal of a position makes pnl match
+    # MT5's own net profit for that position.
     positions = {}
     for deal in deals:
-        if deal.type not in (mt5.DEAL_TYPE_BUY, mt5.DEAL_TYPE_SELL):
+        dt = deal.type
+        # Skip pure account operations (deposits / withdrawals / credit / correction / bonus).
+        if dt in (mt5.DEAL_TYPE_BALANCE, mt5.DEAL_TYPE_CREDIT, 5, 6):
             continue
         pid = deal.position_id
         if pid == 0:
             continue
-        if pid not in positions:
-            positions[pid] = {"opens": [], "closes": []}
-        if deal.entry == mt5.DEAL_ENTRY_IN:
-            positions[pid]["opens"].append(deal)
-        elif deal.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_INOUT):
-            positions[pid]["closes"].append(deal)
+        slot = positions.setdefault(pid, {"all": [], "opens": [], "closes": []})
+        slot["all"].append(deal)
+        if dt in (mt5.DEAL_TYPE_BUY, mt5.DEAL_TYPE_SELL):
+            if deal.entry == mt5.DEAL_ENTRY_IN:
+                slot["opens"].append(deal)
+            elif deal.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_INOUT, 3):  # OUT, INOUT, OUT_BY
+                slot["closes"].append(deal)
 
     result = []
     for pid, pos in positions.items():
-        if not pos["opens"] or not pos["closes"]:
-            continue
-        opens  = pos["opens"]
         closes = pos["closes"]
+        if not closes:
+            continue  # position still open — no realized P&L yet
         last_close = max(closes, key=lambda d: d.time)
         if close_cutoff_ts is not None and last_close.time < close_cutoff_ts:
             continue
-        open_d    = opens[0]
-        all_deals = opens + closes
-        total_comm = round(sum(d.commission for d in all_deals), 2)
-        total_swap = round(sum(d.swap for d in all_deals), 2)
-        pnl        = round(
-            sum(d.profit for d in closes) +
-            sum(d.commission for d in all_deals) +
-            sum(d.swap for d in all_deals),
-            2
-        )
+        opens = pos["opens"]
+        # Net P&L = every money field over every deal of this position = MT5's net.
+        pnl        = round(sum(_money(d) for d in pos["all"]), 2)
+        total_comm = round(sum((getattr(d, "commission", 0.0) or 0.0) + (getattr(d, "fee", 0.0) or 0.0)
+                               for d in pos["all"]), 2)
+        total_swap = round(sum(getattr(d, "swap", 0.0) or 0.0 for d in pos["all"]), 2)
+        if opens:
+            open_d    = opens[0]
+            direction = "BUY" if open_d.type == mt5.DEAL_TYPE_BUY else "SELL"
+            open_dt   = _fmt(open_d.time); open_px = round(open_d.price, 5); vol = open_d.volume
+            symbol    = _strip_suffix(open_d.symbol)
+        else:
+            # Open deal fell outside the fetched window — keep the trade (pnl is still correct)
+            # with best-effort metadata. A long is closed by a SELL deal, so invert the type.
+            direction = "BUY" if last_close.type == mt5.DEAL_TYPE_SELL else "SELL"
+            open_dt   = _fmt(last_close.time); open_px = round(last_close.price, 5); vol = last_close.volume
+            symbol    = _strip_suffix(last_close.symbol)
         result.append({
             "id":        str(pid),
-            "symbol":    _strip_suffix(open_d.symbol),
-            "direction": "BUY" if open_d.type == mt5.DEAL_TYPE_BUY else "SELL",
-            "openDt":    _fmt(open_d.time),
+            "symbol":    symbol,
+            "direction": direction,
+            "openDt":    open_dt,
             "closeDt":   _fmt(last_close.time),
-            "openPx":    round(open_d.price, 5),
+            "openPx":    open_px,
             "closePx":   round(last_close.price, 5),
-            "volume":    open_d.volume,
+            "volume":    vol,
             "pnl":       pnl,
             "commission":total_comm,
             "swap":      total_swap,
             "tag":       "",
-            "notes":     last_close.comment or "",
+            "notes":     "",
         })
     result.sort(key=lambda t: t["openDt"])
     return result
@@ -258,15 +276,18 @@ def _auto_sync_loop():
 
 # ── Flask ─────────────────────────────────────────────────────────────────────
 
+ALLOWED_ORIGINS = {"http://127.0.0.1", "http://localhost", "null"}
+
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": list(ALLOWED_ORIGINS)}})
 
 @app.after_request
 def _cors(response):
-    response.headers["Access-Control-Allow-Origin"]          = "*"
-    response.headers["Access-Control-Allow-Private-Network"] = "true"
-    response.headers["Access-Control-Allow-Methods"]         = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"]         = (
+    origin = request.headers.get("Origin", "")
+    if not origin or origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin or "http://127.0.0.1"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = (
         "Content-Type, Access-Control-Request-Private-Network"
     )
     return response

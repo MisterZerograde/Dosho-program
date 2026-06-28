@@ -10,5 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncBridge:      () => ipcRenderer.invoke('bridge:sync'),
   checkForUpdate:  () => ipcRenderer.invoke('updater:check'),
   installUpdate:   () => ipcRenderer.invoke('updater:install'),
-  onUpdateStatus:  cb => ipcRenderer.on('updater', (_e, data) => cb(data)),
+  onUpdateStatus:  cb => ipcRenderer.on('updater',          (_e, data) => cb(data)),
+  onSyncError:     cb => ipcRenderer.on('bridge:syncError', (_e, data) => cb(data)),
+  onBridgeMissing: cb => ipcRenderer.on('bridge:missing',   (_e, data) => cb(data)),
 });

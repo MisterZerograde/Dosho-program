@@ -1,11 +1,49 @@
+# OS
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Dependencies
 node_modules/
+
+# Build output
 release/
+dist/
+
+# Electron builder cache
+.cache/
+
+# Assets (binary, tracked separately if needed)
 assets/icon.png
 assets/icon.ico
 assets/tray-icon.png
 assets/tray-icon-syncing.png
+
+# Python / bridge build
 mt5_bridge/dist/
 mt5_bridge/build/
 mt5_bridge/*.spec
+mt5_bridge/__pycache__/
+__pycache__/
+*.pyc
+
+# Backups & diagnostics (local only)
+_backup_*/
+backup_*/
+_diag/
+*.bak
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
