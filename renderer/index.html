@@ -4035,10 +4035,11 @@ function _setUpdateUI(text, sub, showInstall, showProgress) {
   if (b) b.style.display = showInstall ? 'none' : '';
   if (p) p.style.display = showProgress ? '' : 'none';
 }
-function triggerCheckUpdate() {
+async function triggerCheckUpdate() {
   if (!window.electronAPI?.checkForUpdate) return;
   _setUpdateUI('กำลังตรวจสอบ...', '', false, false);
-  window.electronAPI.checkForUpdate();
+  const r = await window.electronAPI.checkForUpdate().catch(() => null);
+  if (r === 'not-available') _setUpdateUI('คุณใช้เวอร์ชันล่าสุดแล้ว', '', false, false);
 }
 function triggerInstallUpdate() {
   if (!window.electronAPI?.installUpdate) return;

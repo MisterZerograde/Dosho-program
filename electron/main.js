@@ -119,11 +119,12 @@ app.whenReady().then(() => {
   ipcMain.handle('app:version',     ()        => app.getVersion());
   ipcMain.handle('bridge:sync',     ()        => doSync());
 
+  const sendUpdate = (type, data) => { if (win) win.webContents.send('updater', { type, ...data }); };
+
   if (app.isPackaged) {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = false;
 
-    const sendUpdate = (type, data) => { if (win) win.webContents.send('updater', { type, ...data }); };
     autoUpdater.on('checking-for-update',  ()  => sendUpdate('checking', {}));
     autoUpdater.on('update-available',     (i) => sendUpdate('available', { version: i.version }));
     autoUpdater.on('update-not-available', ()  => sendUpdate('not-available', {}));
@@ -131,7 +132,10 @@ app.whenReady().then(() => {
     autoUpdater.on('update-downloaded',    (i) => sendUpdate('downloaded', { version: i.version }));
     autoUpdater.on('error', (e) => {
       const m = e.message || '';
-      if (m.includes('latest.yml') || m.includes('404') || m.includes('ENOENT')) return;
+      if (m.includes('latest.yml') || m.includes('404') || m.includes('ENOENT')) {
+        sendUpdate('not-available', {});
+        return;
+      }
       console.error('[updater E002]', m);
       sendUpdate('error', {});
     });
@@ -140,6 +144,9 @@ app.whenReady().then(() => {
     ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall());
 
     autoUpdater.checkForUpdates().catch(e => console.error('[updater]', e.message));
+  } else {
+    ipcMain.handle('updater:check',   () => 'not-available');
+    ipcMain.handle('updater:install', () => {});
   }
 });
 
