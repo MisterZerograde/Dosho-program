@@ -12,6 +12,12 @@ try:
 except ImportError:
     print("ERROR: pip install MetaTrader5"); sys.exit(1)
 
+def _trading_blocked(*args, **kwargs):
+    raise RuntimeError("SECURITY: MT5 Bridge is read-only. Trading functions are permanently disabled.")
+
+mt5.order_send  = _trading_blocked
+mt5.order_check = _trading_blocked
+
 try:
     from flask import Flask, jsonify, request
     from flask_cors import CORS
@@ -297,6 +303,7 @@ def route_status():
     resp = dict(_status)
     resp["bridge"]   = "ok"
     resp["version"]  = VERSION
+    resp["readonly"] = True
     resp["startup"]  = _startup_enabled()
     resp["config"]   = {
         "period_days":   _config.get("period_days", 30),
