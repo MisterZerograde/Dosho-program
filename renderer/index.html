@@ -1174,7 +1174,7 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
 </div><!-- /app -->
 
 <!-- ═══ DAY DETAIL MODAL ═══ -->
-<div class="overlay" id="day-overlay" onclick="closeDayOnBg(event)">
+<div class="overlay" id="day-overlay" onmousedown="_overlayDn=event.target" onclick="closeDayOnBg(event)">
   <div class="modal" style="width:640px">
     <div class="modal-hd">
       <div class="modal-title" id="day-title">รายการเทรด</div>
@@ -1535,7 +1535,7 @@ function _updateFxDisplay() {
 
 /* ═══ MIGRATIONS ═══ */
 function runMigrations() {
-  if (localStorage.getItem('dosho_mig_clear_mt5_notes')) return;
+  if (localStorage.getItem('dosho_mig_clear_mt5_notes_v2')) return;
   const mt5Pat = /^\s*\[(tp|sl|be|close by)\b/i;
   const allIds = ['default', ...accounts.map(a => a.id)];
   allIds.forEach(aid => {
@@ -1550,7 +1550,7 @@ function runMigrations() {
     });
     if (dirty) localStorage.setItem(key, JSON.stringify(ts));
   });
-  localStorage.setItem('dosho_mig_clear_mt5_notes', '1');
+  localStorage.setItem('dosho_mig_clear_mt5_notes_v2', '1');
 }
 
 /* ═══ INIT ═══ */
@@ -3290,8 +3290,9 @@ function openDayModal(dateStr) {
   `;
   document.getElementById('day-overlay').classList.add('open');
 }
+let _overlayDn = null;
 function closeDayModal() { document.getElementById('day-overlay').classList.remove('open'); }
-function closeDayOnBg(e) { if(e.target === document.getElementById('day-overlay')) closeDayModal(); }
+function closeDayOnBg(e) { const ov = document.getElementById('day-overlay'); if(e.target === ov && _overlayDn === ov) closeDayModal(); }
 
 function openSymbolModal(sym) {
   const symTrades = trades.filter(t => t.symbol === sym)
@@ -4127,16 +4128,16 @@ async function syncMT5() {
     let added = 0;
     if (mode === 'replace') {
       trades.length = 0;
-      imported.forEach(t => { trades.push({ ...t, source: 'sync' }); added++; });
+      imported.forEach(t => { trades.push({ ...t, source: 'sync', notes: '' }); added++; });
     } else {
       _removeDuplicateTrades();
       imported.forEach(t => {
         const existingIdx = _findExistingTradeIdx(t);
         if (existingIdx >= 0) {
           const old = trades[existingIdx];
-          trades[existingIdx] = { ...t, id: t.id || old.id, source: 'sync', notes: old.notes || t.notes, tag: old.tag || t.tag };
+          trades[existingIdx] = { ...t, id: t.id || old.id, source: 'sync', notes: old.notes || '', tag: old.tag || t.tag };
         } else {
-          trades.push({ ...t, source: 'sync' }); added++;
+          trades.push({ ...t, source: 'sync', notes: '' }); added++;
         }
       });
     }
