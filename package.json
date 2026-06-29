@@ -1,6 +1,6 @@
 {
   "name": "dosho",
-  "version": "1.7.3",
+  "version": "1.7.4",
   "description": "Dosho Trading Journal",
   "main": "electron/main.js",
   "scripts": {

@@ -1175,7 +1175,7 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
 
 <!-- ═══ DAY DETAIL MODAL ═══ -->
 <div class="overlay" id="day-overlay" onmousedown="closeDayOnBg(event)">
-  <div class="modal" style="width:640px">
+  <div class="modal" style="width:640px" onmousedown="event.stopPropagation()">
     <div class="modal-hd">
       <div class="modal-title" id="day-title">รายการเทรด</div>
       <button class="modal-close" onclick="closeDayModal()">✕</button>
