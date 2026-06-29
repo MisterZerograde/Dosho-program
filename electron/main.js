@@ -119,6 +119,18 @@ app.whenReady().then(() => {
   ipcMain.handle('app:version',     ()        => app.getVersion());
   ipcMain.handle('bridge:sync',     ()        => doSync());
 
+  ipcMain.handle('pdf:export', async (_, { html, savePath }) => {
+    const { BrowserWindow: BW } = require('electron');
+    const pdfWin = new BW({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+    const tmpPath = path.join(app.getPath('temp'), 'dosho_report_tmp.html');
+    fs.writeFileSync(tmpPath, html, 'utf-8');
+    await pdfWin.loadFile(tmpPath);
+    const data = await pdfWin.webContents.printToPDF({ pageSize: 'A4', landscape: true, printBackground: true });
+    pdfWin.destroy();
+    try { fs.unlinkSync(tmpPath); } catch {}
+    fs.writeFileSync(savePath, data);
+  });
+
   const sendUpdate = (type, data) => { if (win) win.webContents.send('updater', { type, ...data }); };
 
   if (app.isPackaged) {

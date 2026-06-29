@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeText: (p, t)   => ipcRenderer.invoke('fs:writeText', p, t),
   getVersion:      () => ipcRenderer.invoke('app:version'),
   syncBridge:      () => ipcRenderer.invoke('bridge:sync'),
+  exportPDF: (html, savePath) => ipcRenderer.invoke('pdf:export', { html, savePath }),
   checkForUpdate:  () => ipcRenderer.invoke('updater:check'),
   installUpdate:   () => ipcRenderer.invoke('updater:install'),
   onUpdateStatus:  cb => ipcRenderer.on('updater',          (_e, data) => cb(data)),
