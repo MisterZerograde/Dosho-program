@@ -1174,7 +1174,7 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
 </div><!-- /app -->
 
 <!-- ═══ DAY DETAIL MODAL ═══ -->
-<div class="overlay" id="day-overlay" onmousedown="_overlayDn=event.target" onclick="closeDayOnBg(event)">
+<div class="overlay" id="day-overlay" onmousedown="closeDayOnBg(event)">
   <div class="modal" style="width:640px">
     <div class="modal-hd">
       <div class="modal-title" id="day-title">รายการเทรด</div>
@@ -1535,8 +1535,8 @@ function _updateFxDisplay() {
 
 /* ═══ MIGRATIONS ═══ */
 function runMigrations() {
-  if (localStorage.getItem('dosho_mig_clear_mt5_notes_v2')) return;
-  const mt5Pat = /^\s*\[(tp|sl|be|close by)\b/i;
+  if (localStorage.getItem('dosho_mig_clear_mt5_notes_v3')) return;
+  const mt5Pat = /\[(tp|sl|be|close by)\b/i;
   const allIds = ['default', ...accounts.map(a => a.id)];
   allIds.forEach(aid => {
     const key = aid === 'default' ? 'dosho_trades' : 'dosho_trades_' + aid;
@@ -1550,7 +1550,7 @@ function runMigrations() {
     });
     if (dirty) localStorage.setItem(key, JSON.stringify(ts));
   });
-  localStorage.setItem('dosho_mig_clear_mt5_notes_v2', '1');
+  localStorage.setItem('dosho_mig_clear_mt5_notes_v3', '1');
 }
 
 /* ═══ INIT ═══ */
@@ -3290,9 +3290,8 @@ function openDayModal(dateStr) {
   `;
   document.getElementById('day-overlay').classList.add('open');
 }
-let _overlayDn = null;
 function closeDayModal() { document.getElementById('day-overlay').classList.remove('open'); }
-function closeDayOnBg(e) { const ov = document.getElementById('day-overlay'); if(e.target === ov && _overlayDn === ov) closeDayModal(); }
+function closeDayOnBg(e) { if(e.target === document.getElementById('day-overlay')) closeDayModal(); }
 
 function openSymbolModal(sym) {
   const symTrades = trades.filter(t => t.symbol === sym)
