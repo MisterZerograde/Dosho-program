@@ -855,9 +855,12 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
             <div class="rpt-stat-row clickable" onclick="openFormulaModal('pf')"><span class="rpt-stat-lbl">Profit Factor</span><span class="rpt-stat-val" id="r-pf">—</span></div>
             <div class="rpt-stat-row"><span class="rpt-stat-lbl">Expected Payoff</span><span class="rpt-stat-val" id="r-expected-payoff">—</span></div>
             <div style="height:1px;background:var(--border2);margin:6px 0"></div>
-            <div class="rpt-stat-row"><span class="rpt-stat-lbl">Absolute Drawdown</span><span class="rpt-stat-val red" id="r-abs-dd">—</span></div>
             <div class="rpt-stat-row clickable" onclick="openFormulaModal('rf')"><span class="rpt-stat-lbl">Maximal Drawdown</span><span class="rpt-stat-val red" id="r-max-dd">—</span></div>
             <div class="rpt-stat-row"><span class="rpt-stat-lbl">Relative Drawdown</span><span class="rpt-stat-val red" id="r-rel-dd">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">Average Drawdown</span><span class="rpt-stat-val red" id="r-avg-dd">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">SD Drawdown</span><span class="rpt-stat-val" id="r-sd-dd">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">DD +2σ</span><span class="rpt-stat-val" id="r-2s-dd">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">DD +3σ</span><span class="rpt-stat-val" id="r-3s-dd">—</span></div>
             <div style="height:1px;background:var(--border2);margin:6px 0"></div>
             <div class="rpt-stat-row clickable" onclick="openFormulaModal('wr')"><span class="rpt-stat-lbl">Win Rate</span><span class="rpt-stat-val" id="r-wr">—</span></div>
             <div class="rpt-stat-row"><span class="rpt-stat-lbl">กำไรเฉลี่ยต่อไม้ที่ชนะ</span><span class="rpt-stat-val green" id="r-avgwin">—</span></div>
@@ -865,12 +868,19 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
             <div class="rpt-stat-row"><span class="rpt-stat-lbl">ไม้ที่ได้กำไรสูงสุด</span><span class="rpt-stat-val green" id="r-best">—</span></div>
             <div class="rpt-stat-row"><span class="rpt-stat-lbl">ไม้ที่ขาดทุนสูงสุด</span><span class="rpt-stat-val red" id="r-worst">—</span></div>
             <div style="height:1px;background:var(--border2);margin:6px 0"></div>
-            <div class="rpt-stat-row"><span class="rpt-stat-lbl">ชนะติดต่อกันสูงสุด</span><span class="rpt-stat-val" id="r-streak">—</span></div>
-            <div class="rpt-stat-row"><span class="rpt-stat-lbl">แพ้ติดต่อกันสูงสุด</span><span class="rpt-stat-val" id="r-lstreak">—</span></div>
-            <div class="rpt-stat-row"><span class="rpt-stat-lbl">Maximal Consec. Profit</span><span class="rpt-stat-val green" id="r-consec-profit">—</span></div>
-            <div class="rpt-stat-row"><span class="rpt-stat-lbl">Maximal Consec. Loss</span><span class="rpt-stat-val red" id="r-consec-loss">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">ชนะติดต่อกันสูงสุด</span><span class="rpt-stat-val green" id="r-streak">—</span></div>
             <div class="rpt-stat-row"><span class="rpt-stat-lbl">Avg Consecutive Wins</span><span class="rpt-stat-val" id="r-avg-consec-w">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">SD Consecutive Wins</span><span class="rpt-stat-val" id="r-sd-consec-w">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">Win Streak +2σ</span><span class="rpt-stat-val" id="r-2s-consec-w">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">Win Streak +3σ</span><span class="rpt-stat-val" id="r-3s-consec-w">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">Maximal Consec. Profit</span><span class="rpt-stat-val green" id="r-consec-profit">—</span></div>
+            <div style="height:1px;background:var(--border2);margin:4px 0"></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">แพ้ติดต่อกันสูงสุด</span><span class="rpt-stat-val red" id="r-lstreak">—</span></div>
             <div class="rpt-stat-row"><span class="rpt-stat-lbl">Avg Consecutive Losses</span><span class="rpt-stat-val" id="r-avg-consec-l">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">SD Consecutive Losses</span><span class="rpt-stat-val" id="r-sd-consec-l">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">Loss Streak +2σ</span><span class="rpt-stat-val" id="r-2s-consec-l">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">Loss Streak +3σ</span><span class="rpt-stat-val" id="r-3s-consec-l">—</span></div>
+            <div class="rpt-stat-row"><span class="rpt-stat-lbl">Maximal Consec. Loss</span><span class="rpt-stat-val red" id="r-consec-loss">—</span></div>
             <div style="height:1px;background:var(--border2);margin:6px 0"></div>
             <div class="rpt-stat-row clickable" onclick="openFormulaModal('sharpe')"><span class="rpt-stat-lbl">Sharp Ratio</span><span class="rpt-stat-val" id="r-sharpe">—</span></div>
             <div class="rpt-stat-row clickable" onclick="openFormulaModal('rf')"><span class="rpt-stat-lbl">Recovery Factor</span><span class="rpt-stat-val" id="r-rf">—</span></div>
@@ -884,6 +894,51 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
       <div class="card">
         <div class="card-hd"><span class="card-title">กราฟแสดงผลตอบแทนสะสม</span></div>
         <div style="height:220px;padding:10px 14px 14px"><canvas id="rptChart"></canvas></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="card-hd" style="flex-wrap:wrap;gap:8px">
+          <span class="card-title">Monte Carlo Simulation</span>
+          <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+            <span style="font-size:11px;color:var(--text3)">จำนวนไม้ที่ Simulate</span>
+            <input id="mc-n" type="number" min="10" max="500" value="100"
+              style="width:68px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit;text-align:center">
+            <button class="btn btn-ghost" onclick="runMonteCarlo()">↺ Simulate ใหม่</button>
+          </div>
+        </div>
+        <div id="mc-chart-wrap" style="height:300px;padding:10px 14px 14px;position:relative"><canvas id="mcChart"></canvas><div id="mc-tooltip" style="display:none;position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;pointer-events:none;z-index:10;box-shadow:0 4px 16px rgba(0,0,0,0.15);line-height:1.9;min-width:140px"></div></div>
+        <div id="mc-empty" style="display:none;padding:40px;text-align:center;color:var(--text3);font-size:12px">ไม่มีข้อมูลการเทรดในช่วงเวลาที่เลือก</div>
+        <div id="mc-legend" style="display:flex;gap:16px;padding:0 14px 8px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3)">
+            <div style="width:20px;height:2px;background:rgba(100,116,139,0.5)"></div>100 simulations
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--green)">
+            <div style="width:20px;height:0;border-top:2px dashed var(--green)"></div>95th percentile
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--orange)">
+            <div style="width:20px;height:0;border-top:2px dashed var(--orange)"></div>Median (50th)
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--red)">
+            <div style="width:20px;height:0;border-top:2px dashed var(--red)"></div>5th percentile
+          </div>
+        </div>
+        <div id="mc-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 14px 14px">
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Median Final P&amp;L</div>
+            <div id="mc-median" style="font-size:14px;font-weight:500">—</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">5% → 95% Range</div>
+            <div id="mc-range" style="font-size:11px;font-weight:500">—</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">โอกาสกำไร</div>
+            <div id="mc-positive" style="font-size:14px;font-weight:500">—</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Median Max Drawdown</div>
+            <div id="mc-dd" style="font-size:14px;font-weight:500;color:var(--red)">—</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1027,9 +1082,6 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
                        style="width:16px;height:16px;accent-color:var(--purple);cursor:pointer">
                 <span style="font-size:13px;color:var(--text2)">เปิดอัตโนมัติเมื่อเริ่ม Windows</span>
               </label>
-            </div>
-            <div id="bridge-verify-row" style="display:none;margin-bottom:14px">
-              <button id="btn-verify-mt5" class="btn" style="width:100%;justify-content:center" onclick="verifyMT5Data()">ตรวจสอบข้อมูล</button>
             </div>
             <div id="bridge-download-row" style="display:none">
               <a href="https://github.com/MisterZerograde/Dosho-app/releases/download/latest/mt5_bridge.exe"
@@ -1366,6 +1418,26 @@ let calShowWeekend = safeJsonParse(localStorage.getItem('dosho_cal_weekend'), tr
 let calWrMode = localStorage.getItem('dosho_cal_wr_mode') || 'month';
 let activeJournalDate = new Date().toISOString().slice(0,10);
 let rptChartInst = null;
+let mcChartInst       = null;
+let _mcPct5           = [], _mcPct50 = [], _mcPct95 = [];
+let _mcListenersAdded = false;
+const _mcCrosshair = {
+  id: 'mcCrosshair',
+  afterDraw(chart) {
+    if (chart._mcHoverIdx == null) return;
+    const { ctx, scales: { x, y } } = chart;
+    const px = x.getPixelForValue(chart._mcHoverIdx);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(px, y.top);
+    ctx.lineTo(px, y.bottom);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(100,116,139,0.5)';
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
 let themeMode = localStorage.getItem('dosho_theme') || 'system';
 window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', () => { if(themeMode==='system') applyTheme(); });
 
@@ -1421,11 +1493,14 @@ async function fetchFxRate() {
   const from = settings.mt5Currency || '';
   const to = settings.currency || 'USD';
   if (!from || from === to) { _fxRate = 1; _updateFxDisplay(); return; }
+  // USC = US Cents (1/100 USD) — not a real ISO code, map to USD then scale
+  const apiFrom = from === 'USC' ? 'USD' : from;
+  const scale = from === 'USC' ? 0.01 : 1;
   try {
-    const r = await fetch(`https://open.er-api.com/v6/latest/${from}`, { signal: AbortSignal.timeout(6000) });
+    const r = await fetch(`https://open.er-api.com/v6/latest/${apiFrom}`, { signal: AbortSignal.timeout(6000) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
-    _fxRate = (data.result === 'success' && data.rates && data.rates[to]) ? data.rates[to] : 1;
+    _fxRate = (data.result === 'success' && data.rates && data.rates[to]) ? data.rates[to] * scale : 1;
   } catch { _fxRate = 1; }
   _updateFxDisplay();
   renderDashboard(); renderCalendar(); renderTradeTable(); renderReports();
@@ -1862,8 +1937,12 @@ function calcStats(ts) {
   });
   if(curW > 0) streakWSizes.push(curW);
   if(curL > 0) streakLSizes.push(curL);
-  const avgConsecW = streakWSizes.length ? Math.round(streakWSizes.reduce((a,b)=>a+b,0)/streakWSizes.length) : 0;
-  const avgConsecL = streakLSizes.length ? Math.round(streakLSizes.reduce((a,b)=>a+b,0)/streakLSizes.length) : 0;
+  const _avgCWx = streakWSizes.length ? streakWSizes.reduce((a,b)=>a+b,0)/streakWSizes.length : 0;
+  const _avgCLx = streakLSizes.length ? streakLSizes.reduce((a,b)=>a+b,0)/streakLSizes.length : 0;
+  const avgConsecW = Math.round(_avgCWx);
+  const avgConsecL = Math.round(_avgCLx);
+  const sdConsecW = streakWSizes.length > 1 ? +Math.sqrt(streakWSizes.reduce((s,v)=>s+(v-_avgCWx)**2,0)/(streakWSizes.length-1)).toFixed(2) : 0;
+  const sdConsecL = streakLSizes.length > 1 ? +Math.sqrt(streakLSizes.reduce((s,v)=>s+(v-_avgCLx)**2,0)/(streakLSizes.length-1)).toFixed(2) : 0;
 
   // score
   const wrScore = Math.min(wr, 100) * 0.3;
@@ -1880,23 +1959,37 @@ function calcStats(ts) {
 
   // Drawdown metrics — matches MT5 Trade Report
   let peak=0, drawCum=0, maxDD=0, maxDDPeak=0, minCum=0;
+  const ddList=[];
+  let _ddCur=0, _ddPeak=0, _ddCum=0;
   ts.forEach(t => {
     drawCum += t.pnl;
     if(drawCum < minCum) minCum = drawCum;
     if(drawCum > peak) peak = drawCum;
     const dd = peak - drawCum;
     if(dd > maxDD) { maxDD=dd; maxDDPeak=peak; }
+    _ddCum += t.pnl;
+    if(_ddCum > _ddPeak) {
+      if(_ddCur > 0) ddList.push(_ddCur);
+      _ddPeak = _ddCum; _ddCur = 0;
+    } else {
+      const _d = _ddPeak - _ddCum;
+      if(_d > _ddCur) _ddCur = _d;
+    }
   });
+  if(_ddCur > 0) ddList.push(_ddCur);
   const absDD  = Math.abs(Math.min(0, minCum));
   const relDD  = maxDDPeak > 0 ? maxDD / maxDDPeak * 100 : (maxDD > 0 ? 100 : 0);
   const rf = maxDD > 0 ? +(netPnl / maxDD).toFixed(2) : null;
+  const avgDD = ddList.length ? +(ddList.reduce((a,b)=>a+b,0)/ddList.length).toFixed(2) : 0;
+  const sdDD  = ddList.length > 1 ? +Math.sqrt(ddList.reduce((s,v)=>s+(v-avgDD)**2,0)/(ddList.length-1)).toFixed(2) : 0;
 
   return {
     netPnl, grossWin, grossLoss, pf, wr, avgWin, avgLoss, best, worst,
     maxW, maxL, score, wins, losses, sharpe, rf,
     expectedPayoff, longWR, shortWR, longs, shorts,
     maxConsecProfit, maxConsecProfitCount, maxConsecLoss, maxConsecLossCount,
-    avgConsecW, avgConsecL, absDD, maxDD, relDD,
+    avgConsecW, avgConsecL, sdConsecW, sdConsecL,
+    absDD, maxDD, relDD, avgDD, sdDD,
   };
 }
 
@@ -2383,9 +2476,12 @@ function renderReports() {
   setEl('r-pf', s ? (s.pf===Infinity?'∞':s.pf!==null?s.pf.toFixed(2):dash) : dash, s ? (s.pf >= 1 ? 'green' : 'red') : '');
   setEl('r-expected-payoff', s ? fmt(s.expectedPayoff) : dash, s ? (s.expectedPayoff >= 0 ? 'green' : 'red') : '');
 
-  setEl('r-abs-dd',  s && s.absDD  > 0 ? '-'+fmtAbs(s.absDD)  : (s ? '0'+cur : dash), s && s.absDD > 0 ? 'red' : '');
   setEl('r-max-dd',  s && s.maxDD  > 0 ? '-'+fmtAbs(s.maxDD)+`  (${s.relDD.toFixed(2)}%)` : (s ? '0'+cur : dash), s && s.maxDD > 0 ? 'red' : '');
   setEl('r-rel-dd',  s && s.maxDD  > 0 ? s.relDD.toFixed(2)+'%  (-'+fmtAbs(s.maxDD)+')' : (s ? '0%' : dash), s && s.maxDD > 0 ? 'red' : '');
+  setEl('r-avg-dd',  s && s.avgDD  > 0 ? '-'+fmtAbs(s.avgDD) : (s ? '0'+cur : dash), s && s.avgDD > 0 ? 'red' : '');
+  setEl('r-sd-dd',   s ? fmtAbs(s.sdDD) : dash);
+  setEl('r-2s-dd',   s && s.sdDD > 0 ? '-'+fmtAbs(+(s.avgDD + 2*s.sdDD).toFixed(_rD)) : dash, 'red');
+  setEl('r-3s-dd',   s && s.sdDD > 0 ? '-'+fmtAbs(+(s.avgDD + 3*s.sdDD).toFixed(_rD)) : dash, 'red');
 
   setEl('r-wr', s ? s.wr.toFixed(1)+'%' : dash, s ? (s.wr >= 50 ? 'green' : 'red') : '');
   setEl('r-avgwin',  s && s.wins.length   ? '+'+fmtAbs(s.avgWin)  : dash, 'green');
@@ -2393,12 +2489,18 @@ function renderReports() {
   setEl('r-best',  s ? fmt(s.best)  : dash, s && s.best  >= 0 ? 'green' : 'red');
   setEl('r-worst', s ? fmt(s.worst) : dash, s && s.worst >= 0 ? 'green' : 'red');
 
-  setEl('r-streak',  s ? s.maxW + ' ไม้' : dash);
-  setEl('r-lstreak', s ? s.maxL + ' ไม้' : dash);
+  setEl('r-streak',       s ? s.maxW + ' ไม้' : dash, 'green');
+  setEl('r-avg-consec-w', s ? s.avgConsecW.toFixed(1) + ' ไม้' : dash);
+  setEl('r-sd-consec-w',  s ? s.sdConsecW.toFixed(2) + ' ไม้' : dash);
+  setEl('r-2s-consec-w',  s && s.sdConsecW > 0 ? (s.avgConsecW + 2*s.sdConsecW).toFixed(1) + ' ไม้' : dash);
+  setEl('r-3s-consec-w',  s && s.sdConsecW > 0 ? (s.avgConsecW + 3*s.sdConsecW).toFixed(1) + ' ไม้' : dash);
   setEl('r-consec-profit', s && s.maxConsecProfit > 0 ? `+${fmtAbs(s.maxConsecProfit)}  (${s.maxConsecProfitCount} ไม้)` : dash, 'green');
-  setEl('r-consec-loss',   s && s.maxConsecLoss   > 0 ? `-${fmtAbs(s.maxConsecLoss)}  (${s.maxConsecLossCount} ไม้)`   : dash, 'red');
-  setEl('r-avg-consec-w', s ? s.avgConsecW + ' ไม้' : dash);
-  setEl('r-avg-consec-l', s ? s.avgConsecL + ' ไม้' : dash);
+  setEl('r-lstreak',      s ? s.maxL + ' ไม้' : dash, 'red');
+  setEl('r-avg-consec-l', s ? s.avgConsecL.toFixed(1) + ' ไม้' : dash);
+  setEl('r-sd-consec-l',  s ? s.sdConsecL.toFixed(2) + ' ไม้' : dash);
+  setEl('r-2s-consec-l',  s && s.sdConsecL > 0 ? (s.avgConsecL + 2*s.sdConsecL).toFixed(1) + ' ไม้' : dash);
+  setEl('r-3s-consec-l',  s && s.sdConsecL > 0 ? (s.avgConsecL + 3*s.sdConsecL).toFixed(1) + ' ไม้' : dash);
+  setEl('r-consec-loss',  s && s.maxConsecLoss > 0 ? `-${fmtAbs(s.maxConsecLoss)}  (${s.maxConsecLossCount} ไม้)` : dash, 'red');
 
   const sharpeEl = document.getElementById('r-sharpe');
   if(sharpeEl) { sharpeEl.textContent = s && s.sharpe !== null ? s.sharpe.toFixed(2) : dash; sharpeEl.className = 'rpt-stat-val' + (s && s.sharpe !== null ? (s.sharpe >= 0 ? ' green' : ' red') : ''); }
@@ -2459,6 +2561,138 @@ function renderReports() {
         scales:{x:{grid:{color:gridCol},ticks:{color:tickCol,font:{size:10},maxTicksLimit:8}},y:{grid:{color:gridCol},ticks:{color:tickCol,font:{size:10},callback:v=>v.toLocaleString('th-TH')+getCurrencySymbol()}}}}
     });
   }
+  runMonteCarlo();
+}
+
+/* ═══ MONTE CARLO ═══ */
+function runMonteCarlo() {
+  const vts  = viewTrades();
+  const pnls = displayTrades(vts).map(t => applyFx(t.pnl));
+  const chartWrap = document.getElementById('mc-chart-wrap');
+  const emptyEl   = document.getElementById('mc-empty');
+  const legendEl  = document.getElementById('mc-legend');
+  const statsEl   = document.getElementById('mc-stats');
+  if (!chartWrap) return;
+
+  if (!pnls.length) {
+    chartWrap.style.display = 'none';
+    legendEl.style.display  = 'none';
+    statsEl.style.display   = 'none';
+    emptyEl.style.display   = 'block';
+    if (mcChartInst) { mcChartInst.destroy(); mcChartInst = null; }
+    return;
+  }
+  chartWrap.style.display = '';
+  legendEl.style.display  = 'flex';
+  statsEl.style.display   = 'grid';
+  emptyEl.style.display   = 'none';
+
+  const N    = Math.max(10, Math.min(500, parseInt(document.getElementById('mc-n').value) || 100));
+  const RUNS = 100;
+  const dp   = getPnlDecimals();
+  const cur  = getCurrencySymbol();
+  const isDark = document.documentElement.dataset.theme === 'dark';
+
+  const simulations = [];
+  for (let r = 0; r < RUNS; r++) {
+    let eq = 0;
+    const path = [0];
+    for (let i = 0; i < N; i++) {
+      eq += pnls[Math.floor(Math.random() * pnls.length)];
+      path.push(+eq.toFixed(dp));
+    }
+    simulations.push(path);
+  }
+
+  const pct5 = [], pct50 = [], pct95 = [];
+  for (let i = 0; i <= N; i++) {
+    const vals = simulations.map(s => s[i]).sort((a, b) => a - b);
+    pct5.push(vals[Math.floor(RUNS * 0.05)]);
+    pct50.push(vals[Math.floor(RUNS * 0.50)]);
+    pct95.push(vals[Math.floor(RUNS * 0.95)]);
+  }
+  _mcPct5 = pct5; _mcPct50 = pct50; _mcPct95 = pct95;
+
+  const labels   = Array.from({length: N + 1}, (_, i) => i);
+  const simColor = isDark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.10)';
+  const gridCol  = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(40,44,103,0.05)';
+  const tickCol  = '#64748b';
+
+  const datasets = simulations.map(path => ({
+    data: path, borderColor: simColor, borderWidth: 1,
+    pointRadius: 0, fill: false, tension: 0,
+  }));
+  datasets.push({ label: '95th',   data: pct95, borderColor: '#059669', borderWidth: 2.5, borderDash: [6, 3], pointRadius: 0, fill: false, tension: 0 });
+  datasets.push({ label: 'Median', data: pct50, borderColor: '#d97706', borderWidth: 2.5, borderDash: [6, 3], pointRadius: 0, fill: false, tension: 0 });
+  datasets.push({ label: '5th',    data: pct5,  borderColor: '#dc2626', borderWidth: 2.5, borderDash: [6, 3], pointRadius: 0, fill: false, tension: 0 });
+
+  if (mcChartInst) { mcChartInst.destroy(); mcChartInst = null; }
+  const ctx = document.getElementById('mcChart').getContext('2d');
+  mcChartInst = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    plugins: [_mcCrosshair],
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 0 },
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: { grid: { color: gridCol }, ticks: { color: tickCol, font: { size: 10 }, maxTicksLimit: 12 } },
+        y: { grid: { color: gridCol }, ticks: { color: tickCol, font: { size: 10 }, callback: v => v.toLocaleString('th-TH') + cur } },
+      },
+    },
+  });
+
+  if (!_mcListenersAdded) {
+    _mcListenersAdded = true;
+    const canv = document.getElementById('mcChart');
+    const tip  = document.getElementById('mc-tooltip');
+    const wrap = document.getElementById('mc-chart-wrap');
+    canv.addEventListener('mousemove', ev => {
+      if (!mcChartInst || !_mcPct5.length) return;
+      const canvRect = canv.getBoundingClientRect();
+      const wrapRect = wrap.getBoundingClientRect();
+      const xPx = ev.clientX - canvRect.left;
+      let idx = Math.round(mcChartInst.scales.x.getValueForPixel(xPx));
+      idx = Math.max(0, Math.min(_mcPct5.length - 1, idx));
+      const fmtV = v => v !== undefined ? (v >= 0 ? '+' : '') + v.toFixed(getPnlDecimals()) + getCurrencySymbol() : '—';
+      const tipX = Math.min(ev.clientX - wrapRect.left + 14, wrapRect.width - 162);
+      const tipY = Math.max(4, ev.clientY - wrapRect.top - 96);
+      tip.style.left = tipX + 'px';
+      tip.style.top  = tipY + 'px';
+      tip.style.display = 'block';
+      tip.innerHTML = `<div style="font-weight:600;margin-bottom:2px;color:var(--text)">Trade #${idx}</div><div style="color:#059669">▲ 95th&nbsp;&nbsp;${fmtV(_mcPct95[idx])}</div><div style="color:#d97706">◆ Median ${fmtV(_mcPct50[idx])}</div><div style="color:#dc2626">▼ 5th&nbsp;&nbsp;&nbsp;${fmtV(_mcPct5[idx])}</div>`;
+      mcChartInst._mcHoverIdx = idx;
+      mcChartInst.update('none');
+    });
+    canv.addEventListener('mouseleave', () => {
+      tip.style.display = 'none';
+      if (mcChartInst) { mcChartInst._mcHoverIdx = null; mcChartInst.update('none'); }
+    });
+  }
+
+  const finalVals = simulations.map(s => s[N]).sort((a, b) => a - b);
+  const medFinal  = finalVals[Math.floor(RUNS * 0.50)];
+  const p5Final   = finalVals[Math.floor(RUNS * 0.05)];
+  const p95Final  = finalVals[Math.floor(RUNS * 0.95)];
+  const pctPos    = (finalVals.filter(v => v > 0).length / RUNS * 100).toFixed(0);
+
+  const maxDDs = simulations.map(path => {
+    let peak = 0, dd = 0;
+    path.forEach(v => { if (v > peak) peak = v; if (peak - v > dd) dd = peak - v; });
+    return dd;
+  }).sort((a, b) => a - b);
+  const medDD = maxDDs[Math.floor(RUNS * 0.50)];
+
+  const fmtV = v => (v >= 0 ? '+' : '') + v.toFixed(dp) + cur;
+  const medEl = document.getElementById('mc-median');
+  if (medEl) { medEl.textContent = fmtV(medFinal); medEl.style.color = medFinal >= 0 ? 'var(--green)' : 'var(--red)'; }
+  const rngEl = document.getElementById('mc-range');
+  if (rngEl) rngEl.textContent = fmtV(p5Final) + ' → ' + fmtV(p95Final);
+  const posEl = document.getElementById('mc-positive');
+  if (posEl) { posEl.textContent = pctPos + '%'; posEl.style.color = +pctPos >= 50 ? 'var(--green)' : 'var(--red)'; }
+  const ddEl = document.getElementById('mc-dd');
+  if (ddEl) ddEl.textContent = '-' + Math.abs(medDD).toFixed(dp) + cur;
 }
 
 /* ═══ JOURNAL ═══ */
