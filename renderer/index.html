@@ -1352,11 +1352,12 @@ body{font-family:'Mitr',-apple-system,sans-serif;background:var(--bg);color:var(
           <label class="form-label">บันทึกเพิ่มเติม</label>
           <textarea class="form-input form-textarea" id="f-notes" placeholder="เหตุผลในการเข้าเทรด..."></textarea>
           <div id="trade-img-zone" style="margin-top:6px">
-            <div id="trade-img-preview" style="display:none;position:relative;margin-bottom:8px">
-              <img id="trade-img-el" style="max-width:100%;max-height:260px;border-radius:8px;border:1px solid var(--border2);display:block" alt="">
-              <button onclick="_imgClearPending()" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0" title="ลบภาพ">✕</button>
+            <div id="trade-imgs-list"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+              <input type="file" id="trade-img-file" accept="image/*" style="display:none" onchange="_imgFileSelect(event)">
+              <button onclick="document.getElementById('trade-img-file').click()" class="btn btn-ghost" style="font-size:11px;padding:4px 10px">📷 เพิ่มรูป</button>
+              <span style="font-size:11px;color:var(--text3)">หรือ Ctrl+V วางจากคลิปบอร์ด</span>
             </div>
-            <div style="font-size:11px;color:var(--text3)">📋 Ctrl+V เพื่อวางภาพ Screenshot จาก Clipboard</div>
           </div>
         </div>
       </div>
@@ -1746,9 +1747,8 @@ function openModal(id) {
     }
     renderModalTags();
     document.getElementById('f-notes').value = t.notes || '';
-    _pendingImg = undefined;
-    const _exi = _imgLoad(t.id);
-    if (_exi) _imgShowPreview(_exi); else _imgClearPending();
+    _pendingImgs = _tradeImgsLoad(t.id).map(x => ({ ...x }));
+    _renderTradeImgsList();
   } else {
     document.getElementById('modal-title').textContent = 'บันทึกการเทรด';
     document.getElementById('f-symbol').value = '';
@@ -1759,12 +1759,12 @@ function openModal(id) {
     document.getElementById('f-close-px').value = '';
     document.getElementById('f-volume').value = '';
     document.getElementById('f-pnl').value = '';
-    
+
     modalSelectedTags = [];
     renderModalTags();
     document.getElementById('f-notes').value = '';
-    _pendingImg = undefined;
-    _imgClearPending();
+    _pendingImgs = [];
+    _renderTradeImgsList();
   }
   const isMT5 = !!(editId && trades.find(x => x.id === editId)?.source === 'sync');
   _setModalMT5Lock(isMT5);
@@ -1797,10 +1797,7 @@ function saveTrade() {
       const trade = { ...orig, tag: modalSelectedTags.join(', '), notes: document.getElementById('f-notes').value.trim() };
       trades = trades.map(t => t.id === editId ? trade : t);
       persist();
-      if (_pendingImg !== undefined) {
-        if (_pendingImg) _imgSave(trade.id, _pendingImg); else _imgDel(trade.id);
-        _pendingImg = undefined;
-      }
+      _tradeImgsSave(trade.id, _pendingImgs);
       closeModal();
       renderDashboard(); renderCalendar(); renderTradeTable(); renderReports();
     }
@@ -1836,10 +1833,7 @@ function saveTrade() {
   // sort by open date
   trades.sort((a,b) => getTradeTimeMs(a.openDt) - getTradeTimeMs(b.openDt));
   persist();
-  if (_pendingImg !== undefined) {
-    if (_pendingImg) _imgSave(trade.id, _pendingImg); else _imgDel(trade.id);
-    _pendingImg = undefined;
-  }
+  _tradeImgsSave(trade.id, _pendingImgs);
   closeModal();
   renderDashboard();
   renderCalendar();
@@ -1851,7 +1845,7 @@ function deleteTrade(id) {
   if(!confirm('คุณต้องการลบรายการเทรดนี้ใช่หรือไม่?')) return;
   trades = trades.filter(t => t.id !== id);
   persist();
-  _imgDel(id);
+  _tradeImgsDel(id);
   renderDashboard();
   renderCalendar();
   renderTradeTable();
@@ -1860,20 +1854,39 @@ function deleteTrade(id) {
 
 function persist() { localStorage.setItem(acctKey('dosho_trades'), JSON.stringify(trades)); }
 
-let _pendingImg = undefined;
+let _pendingImgs = [];
 let _tradeImgIds = new Set(safeJsonParse(localStorage.getItem(acctKey('dosho_img_ids')), []));
 function _imgKey(tid) { return acctKey('dosho_img') + '_' + tid; }
-function _imgSave(tid, dataUrl) {
-  localStorage.setItem(_imgKey(tid), dataUrl);
-  _tradeImgIds.add(tid);
+function _tradeImgsKey(tid) { return acctKey('dosho_imgs') + '_' + tid; }
+function _tradeImgsLoad(tid) {
+  const raw = localStorage.getItem(_tradeImgsKey(tid));
+  if (raw) { try { const a = JSON.parse(raw); if (Array.isArray(a)) return a; } catch {} }
+  const old = localStorage.getItem(_imgKey(tid));
+  return old ? [{ url: old, desc: '' }] : [];
+}
+function _tradeImgsSave(tid, arr) {
+  if (arr.length) { localStorage.setItem(_tradeImgsKey(tid), JSON.stringify(arr)); _tradeImgIds.add(tid); }
+  else { localStorage.removeItem(_tradeImgsKey(tid)); localStorage.removeItem(_imgKey(tid)); _tradeImgIds.delete(tid); }
   localStorage.setItem(acctKey('dosho_img_ids'), JSON.stringify([..._tradeImgIds]));
 }
-function _imgLoad(tid) { return localStorage.getItem(_imgKey(tid)); }
-function _imgDel(tid) {
-  localStorage.removeItem(_imgKey(tid));
+function _tradeImgsDel(tid) {
+  localStorage.removeItem(_tradeImgsKey(tid)); localStorage.removeItem(_imgKey(tid));
   _tradeImgIds.delete(tid);
   localStorage.setItem(acctKey('dosho_img_ids'), JSON.stringify([..._tradeImgIds]));
 }
+function _renderTradeImgsList() {
+  const c = document.getElementById('trade-imgs-list'); if (!c) return;
+  c.innerHTML = _pendingImgs.map((img, i) => `<div style="margin-bottom:10px"><div style="position:relative;margin-bottom:4px"><img src="${img.url}" style="max-width:100%;max-height:260px;border-radius:8px;border:1px solid var(--border2);display:block"><button onclick="_tradeImgRemove(${i})" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0">✕</button></div><input class="form-input" placeholder="คำอธิบายรูป..." value="${escapeHtml(img.desc)}" oninput="_pendingImgs[${i}].desc=this.value" style="font-size:11px;padding:5px 8px;width:100%;box-sizing:border-box"></div>`).join('');
+}
+function _tradeImgRemove(idx) { _pendingImgs.splice(idx, 1); _renderTradeImgsList(); }
+function _addPendingImg(dataUrl) { _pendingImgs.push({ url: dataUrl, desc: '' }); _renderTradeImgsList(); }
+function _imgFileSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => _addPendingImg(ev.target.result);
+  reader.readAsDataURL(file); e.target.value = '';
+}
+function _imgLoad(tid) { const imgs = _tradeImgsLoad(tid); return imgs.length ? imgs[0].url : null; }
 
 /* ─── CALENDAR NOTES + IMAGES ─── */
 let _calCtx = { type: '', key: '' };
@@ -1895,48 +1908,49 @@ function _calSaveNote() {
     else localStorage.removeItem(_calNoteKeyStr(_calCtx.type, _calCtx.key));
   }
 }
-function _calSetImg(dataUrl) {
-  localStorage.setItem(_calImgKeyStr(_calCtx.type, _calCtx.key), dataUrl);
-  const prev = document.getElementById('_cal-img-preview');
-  if (prev) prev.innerHTML = `<div style="position:relative;margin-bottom:8px"><img src="${dataUrl}" style="max-width:100%;border-radius:8px;border:1px solid var(--border2);display:block"><button onclick="_calDelImg()" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0">✕</button></div>`;
+function _calImgsLoad() {
+  const raw = localStorage.getItem(_calImgKeyStr(_calCtx.type, _calCtx.key));
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); if (Array.isArray(a)) return a; } catch {}
+  return raw ? [{ url: raw, desc: '' }] : [];
 }
-function _calDelImg() {
-  localStorage.removeItem(_calImgKeyStr(_calCtx.type, _calCtx.key));
-  const prev = document.getElementById('_cal-img-preview'); if (prev) prev.innerHTML = '';
+function _calImgsSave(arr) {
+  const k = _calImgKeyStr(_calCtx.type, _calCtx.key);
+  if (arr.length) localStorage.setItem(k, JSON.stringify(arr)); else localStorage.removeItem(k);
+}
+function _calAddImg(dataUrl) {
+  const arr = _calImgsLoad(); arr.push({ url: dataUrl, desc: '' }); _calImgsSave(arr); _renderCalImgs();
+}
+function _calDelImg(idx) {
+  const arr = _calImgsLoad(); arr.splice(idx, 1); _calImgsSave(arr); _renderCalImgs();
+}
+function _calUpdateImgDesc(idx, desc) {
+  const arr = _calImgsLoad(); if (arr[idx]) { arr[idx].desc = desc; _calImgsSave(arr); }
+}
+function _renderCalImgs() {
+  const c = document.getElementById('_cal-imgs-container'); if (!c) return;
+  const imgs = _calImgsLoad();
+  c.innerHTML = imgs.map((img, i) => `<div style="margin-bottom:10px"><div style="position:relative;margin-bottom:4px"><img src="${img.url}" style="max-width:100%;border-radius:8px;border:1px solid var(--border2);display:block"><button onclick="_calDelImg(${i})" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0">✕</button></div><input class="form-input" placeholder="คำอธิบายรูป..." value="${escapeHtml(img.desc)}" oninput="_calUpdateImgDesc(${i},this.value)" style="font-size:11px;padding:5px 8px;width:100%;box-sizing:border-box"></div>`).join('');
 }
 function _calImgFromFile(e) {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => _calSetImg(ev.target.result);
+  reader.onload = ev => _calAddImg(ev.target.result);
   reader.readAsDataURL(file); e.target.value = '';
 }
 function _calHandlePaste(e) {
   for (const item of (e.clipboardData || {}).items || []) {
     if (item.type.indexOf('image') !== -1) {
       const reader = new FileReader();
-      reader.onload = ev => _calSetImg(ev.target.result);
+      reader.onload = ev => _calAddImg(ev.target.result);
       reader.readAsDataURL(item.getAsFile()); e.preventDefault(); return;
     }
   }
 }
 function _calNoteImgSection() {
   const noteVal = _calGetNote();
-  const imgData = localStorage.getItem(_calImgKeyStr(_calCtx.type, _calCtx.key)) || '';
-  const imgHtml = imgData ? `<div style="position:relative;margin-bottom:8px"><img src="${imgData}" style="max-width:100%;border-radius:8px;border:1px solid var(--border2);display:block"><button onclick="_calDelImg()" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0">✕</button></div>` : '';
-  return `<div style="margin-top:16px;border-top:1px solid var(--border2);padding-top:14px"><div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">บันทึก</div><textarea id="_cal-note-ta" class="form-input form-textarea" style="min-height:80px;width:100%;margin-bottom:10px;box-sizing:border-box" placeholder="เขียนบันทึก..." oninput="_calSaveNote()" onpaste="_calHandlePaste(event)">${escapeHtml(noteVal)}</textarea><div id="_cal-img-preview">${imgHtml}</div><div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);margin-top:4px"><input type="file" id="_cal-file-input" accept="image/*" style="display:none" onchange="_calImgFromFile(event)"><button onclick="document.getElementById('_cal-file-input').click()" class="btn btn-ghost" style="font-size:11px;padding:4px 10px">📷 เพิ่มรูป</button><span>หรือ Ctrl+V วางรูปจากคลิปบอร์ด</span></div></div>`;
+  return `<div style="margin-top:16px;border-top:1px solid var(--border2);padding-top:14px"><div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">บันทึก</div><textarea id="_cal-note-ta" class="form-input form-textarea" style="min-height:80px;width:100%;margin-bottom:10px;box-sizing:border-box" placeholder="เขียนบันทึก..." oninput="_calSaveNote()" onpaste="_calHandlePaste(event)">${escapeHtml(noteVal)}</textarea><div id="_cal-imgs-container"></div><div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);margin-top:4px"><input type="file" id="_cal-file-input" accept="image/*" style="display:none" onchange="_calImgFromFile(event)"><button onclick="document.getElementById('_cal-file-input').click()" class="btn btn-ghost" style="font-size:11px;padding:4px 10px">📷 เพิ่มรูป</button><span>หรือ Ctrl+V วางรูปจากคลิปบอร์ด</span></div></div>`;
 }
-function _imgShowPreview(dataUrl) {
-  const el = document.getElementById('trade-img-el');
-  const prev = document.getElementById('trade-img-preview');
-  if (el) el.src = dataUrl;
-  if (prev) prev.style.display = '';
-}
-function _imgClearPending() {
-  _pendingImg = null;
-  const prev = document.getElementById('trade-img-preview');
-  if (prev) prev.style.display = 'none';
-}
-
 document.addEventListener('paste', function(e) {
   const overlay = document.getElementById('overlay');
   if (!overlay || !overlay.classList.contains('open')) return;
@@ -1946,10 +1960,7 @@ document.addEventListener('paste', function(e) {
     if (item.type.startsWith('image/')) {
       const file = item.getAsFile();
       const reader = new FileReader();
-      reader.onload = function(ev) {
-        _pendingImg = ev.target.result;
-        _imgShowPreview(_pendingImg);
-      };
+      reader.onload = function(ev) { _addPendingImg(ev.target.result); };
       reader.readAsDataURL(file);
       e.preventDefault();
       break;
@@ -3339,12 +3350,13 @@ function openDayModal(dateStr) {
             <span style="font-weight:500;color:var(--text);margin-right:6px">${escapeHtml(t.symbol)}</span>${escapeHtml(t.notes)}
           </div>`).join('')}
       </div>` : ''}
-    ${(()=>{const imgs=dayTrades.filter(t=>_tradeImgIds.has(t.id));return imgs.length?`<div style="margin-top:14px"><div style="font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px">📷 ภาพประกอบ</div>${imgs.map(t=>`<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">${escapeHtml(t.symbol)}</div><img src="${_imgLoad(t.id)}" style="max-width:100%;border-radius:8px;border:1px solid var(--border2);display:block"></div>`).join('')}</div>`:''})()}
+    ${(()=>{ const tradesWithImgs = dayTrades.map(t=>({ t, imgs: _tradeImgsLoad(t.id) })).filter(x=>x.imgs.length); return tradesWithImgs.length ? `<div style="margin-top:14px"><div style="font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px">📷 ภาพประกอบ</div>${tradesWithImgs.map(({t,imgs})=>`<div style="margin-bottom:10px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">${escapeHtml(t.symbol)}</div>${imgs.map(img=>`<div style="margin-bottom:6px"><img src="${img.url}" style="max-width:100%;border-radius:8px;border:1px solid var(--border2);display:block">${img.desc?`<div style="font-size:11px;color:var(--text3);margin-top:3px">${escapeHtml(img.desc)}</div>`:''}</div>`).join('')}</div>`).join('')}</div>` : ''; })()}
     `;
   }
 
   document.getElementById('day-title').textContent = niceDate;
   document.getElementById('day-body').innerHTML = tradesHtml + _calNoteImgSection();
+  _renderCalImgs();
   document.getElementById('day-overlay').classList.add('open');
 }
 function closeDayModal() { document.getElementById('day-overlay').classList.remove('open'); }
@@ -3440,7 +3452,7 @@ function openTradeDetail(id) {
     </div>
     ${t.tag ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:500;color:var(--text3);margin-bottom:6px">แท็ก</div><div style="display:flex;flex-wrap:wrap;gap:5px">${renderTradeTags(t.tag)}</div></div>` : ''}
     ${t.notes ? `<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:12px"><div style="font-size:10px;color:var(--text3);margin-bottom:5px">บันทึกเพิ่มเติม</div><div style="font-size:12px;color:var(--text2);line-height:1.6">${escapeHtml(t.notes)}</div></div>` : ''}
-    ${(()=>{const img=_imgLoad(t.id);return img?`<div style="margin-bottom:12px"><img src="${img}" style="max-width:100%;border-radius:8px;border:1px solid var(--border2);display:block"></div>`:''})()}
+    ${(()=>{ const imgs = _tradeImgsLoad(t.id); return imgs.length ? imgs.map(img=>`<div style="margin-bottom:12px"><img src="${img.url}" style="max-width:100%;border-radius:8px;border:1px solid var(--border2);display:block">${img.desc?`<div style="font-size:11px;color:var(--text3);margin-top:4px">${escapeHtml(img.desc)}</div>`:''}</div>`).join('') : ''; })()}
     <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeDayModal();openModal('${escapeHtml(t.id)}')">แก้ไข</button>
     </div>
@@ -3505,6 +3517,7 @@ function openWeekModal(wi, week, dayMap) {
     </table>
     ${_calNoteImgSection()}
   `;
+  _renderCalImgs();
   document.getElementById('day-overlay').classList.add('open');
 }
 
@@ -3548,6 +3561,7 @@ function openMonthModal() {
     </table>` : `<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">ไม่มีรายการเทรดในเดือนนี้</div>`}
     ${_calNoteImgSection()}
   `;
+  _renderCalImgs();
   document.getElementById('day-overlay').classList.add('open');
 }
 
